@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="730" viewBox="0 0 1200 730" role="img" aria-labelledby="title desc">
+  <title id="title">KVFerry 架构与决策流程</title>
+  <desc id="desc">上游推理引擎向 KVFerry 提供块信息和命中查询，并发起异步加载。KVFerry 分别连接存储层和决策层。存储层的 KV 形态索引为决策层的成本评估提供信息，成本评估输出取回、重算或不可取回三种结果。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.6" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#35434A"/>
+    </marker>
+    <style>
+      text {
+        font-family: "Resource Han Rounded CN", "MiSans", "HarmonyOS Sans SC", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+        font-synthesis: none;
+      }
+      .node-title { font-size: 23px; font-weight: 650; fill: #25343A; }
+      .main-title { font-size: 27px; font-weight: 700; fill: #FFFFFF; letter-spacing: .2px; }
+      .zone-title { font-size: 20px; font-weight: 650; }
+      .card-title { font-size: 21px; font-weight: 650; fill: #26363C; }
+      .edge-label { font-size: 16px; font-weight: 600; fill: #3F4C52; }
+      .output-label { font-size: 17px; font-weight: 650; fill: #66512B; }
+      .main-edge { fill: none; stroke: #35434A; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow); }
+      .async-edge { fill: none; stroke: #59666C; stroke-width: 1.8; stroke-dasharray: 6 6; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow); }
+      .edge-tag { fill: #FFFFFF; }
+    </style>
+  </defs>
+
+  <!-- Canvas -->
+  <rect x="0" y="0" width="1200" height="730" fill="#FFFFFF"/>
+
+  <!-- Upstream engine -->
+  <rect x="420" y="42" width="360" height="82" rx="13" fill="#F3F5F6" stroke="#AAB6BB" stroke-width="1.5"/>
+  <text x="600" y="92" class="node-title" text-anchor="middle">上游推理引擎</text>
+
+  <!-- Upstream -> KVFerry: synchronous interface and asynchronous loading -->
+  <path d="M 560 124 V 214" class="main-edge"/>
+  <path d="M 640 124 V 214" class="async-edge"/>
+  <rect x="365" y="153" width="178" height="29" rx="6" class="edge-tag"/>
+  <text x="454" y="173" class="edge-label" text-anchor="middle">块信息 / 命中查询</text>
+  <rect x="656" y="153" width="112" height="29" rx="6" class="edge-tag"/>
+  <text x="712" y="173" class="edge-label" text-anchor="middle">异步加载</text>
+
+  <!-- KVFerry core -->
+  <rect x="465" y="216" width="270" height="96" rx="15" fill="#2C535A" stroke="#24464C" stroke-width="1.8"/>
+  <text x="600" y="274" class="main-title" text-anchor="middle">KVFerry</text>
+
+  <!-- KVFerry -> storage and decision layers -->
+  <path d="M 530 312 V 348 H 315 V 384" class="main-edge"/>
+  <path d="M 670 312 V 348 H 885 V 384" class="main-edge"/>
+  <rect x="374" y="331" width="116" height="28" rx="6" class="edge-tag"/>
+  <text x="432" y="351" class="edge-label" text-anchor="middle">存储访问</text>
+  <rect x="714" y="331" width="116" height="28" rx="6" class="edge-tag"/>
+  <text x="772" y="351" class="edge-label" text-anchor="middle">评估请求</text>
+
+  <!-- Storage zone -->
+  <rect x="95" y="390" width="440" height="300" rx="16" fill="#EEF4F7" stroke="#B6C9D2" stroke-width="1.5"/>
+  <text x="130" y="434" class="zone-title" fill="#365C70">存储层</text>
+  <rect x="180" y="495" width="280" height="82" rx="11" fill="#FFFFFF" stroke="#8FAAB8" stroke-width="1.6"/>
+  <text x="320" y="544" class="card-title" text-anchor="middle">KV 形态索引</text>
+
+  <!-- Decision zone -->
+  <rect x="665" y="390" width="440" height="300" rx="16" fill="#FAF5EA" stroke="#D9C9A8" stroke-width="1.5"/>
+  <text x="700" y="434" class="zone-title" fill="#806432">决策层</text>
+  <rect x="770" y="495" width="280" height="82" rx="11" fill="#FFFFFF" stroke="#C9B58B" stroke-width="1.6"/>
+  <text x="910" y="544" class="card-title" text-anchor="middle">成本评估</text>
+
+  <!-- Storage index -> cost evaluation -->
+  <path d="M 460 536 H 762" class="main-edge"/>
+  <rect x="536" y="507" width="150" height="28" rx="6" class="edge-tag"/>
+  <text x="611" y="527" class="edge-label" text-anchor="middle">KV 形态信息</text>
+
+  <!-- Cost evaluation -> one of the decision outcomes -->
+  <path d="M 910 577 V 607" class="main-edge"/>
+  <rect x="923" y="577" width="104" height="27" rx="6" class="edge-tag"/>
+  <text x="975" y="596" class="edge-label" text-anchor="middle">评估结果</text>
+
+  <!-- Mutually exclusive decision outcomes -->
+  <rect x="700" y="615" width="365" height="55" rx="10" fill="#FFFDF8" stroke="#D9C9A8" stroke-width="1.2"/>
+  <rect x="713" y="627" width="101" height="31" rx="7" fill="#F4EBD8" stroke="#C9B58B" stroke-width="1.1"/>
+  <rect x="832" y="627" width="101" height="31" rx="7" fill="#F4EBD8" stroke="#C9B58B" stroke-width="1.1"/>
+  <rect x="951" y="627" width="101" height="31" rx="7" fill="#F4EBD8" stroke="#C9B58B" stroke-width="1.1"/>
+  <text x="763.5" y="649" class="output-label" text-anchor="middle">取回</text>
+  <text x="882.5" y="649" class="output-label" text-anchor="middle">重算</text>
+  <text x="1001.5" y="649" class="output-label" text-anchor="middle">不可取回</text>
+</svg>

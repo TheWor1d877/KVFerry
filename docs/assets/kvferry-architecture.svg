@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1570" height="720" viewBox="0 0 1570 720" font-family="'Resource Han Rounded CN','MiSans','HarmonyOS Sans SC','PingFang SC','Noto Sans CJK SC','Microsoft YaHei',sans-serif" font-synthesis="none">
+  <defs>
+    <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="arw-dec" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4338ca"/>
+    </marker>
+    <marker id="arw-param" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b45309"/>
+    </marker>
+    <marker id="arw-store" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0f766e"/>
+    </marker>
+    <style>
+      .t { font-size: 15px; font-weight: 700; }
+      .b { font-size: 13px; font-weight: 500; fill: #3f4a5a; }
+      .s { font-size: 12px; font-weight: 500; fill: #5b6779; }
+      .zl { font-size: 15px; font-weight: 700; }
+      .zs { font-size: 12px; font-weight: 500; fill: #5b6779; }
+      .lab { font-size: 12px; font-weight: 600; fill: #475569; paint-order: stroke; stroke: #ffffff; stroke-width: 3px; }
+      .lab-p { font-size: 12px; font-weight: 600; fill: #92400e; paint-order: stroke; stroke: #ffffff; stroke-width: 3px; }
+      .lab-d { font-size: 12px; font-weight: 600; fill: #4338ca; paint-order: stroke; stroke: #ffffff; stroke-width: 3px; }
+      .lab-s { font-size: 12px; font-weight: 600; fill: #0f766e; paint-order: stroke; stroke: #ffffff; stroke-width: 3px; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1570" height="720" fill="#fdfdfc"/>
+
+  <!-- 分区带 -->
+  <rect x="36" y="76" width="564" height="606" rx="14" fill="#64748b" opacity="0.05"/>
+  <rect x="620" y="76" width="644" height="606" rx="14" fill="#1f5f9e" opacity="0.045"/>
+  <rect x="1284" y="76" width="272" height="606" rx="14" fill="#0f766e" opacity="0.05"/>
+
+  <!-- 分区标题 -->
+  <text x="318" y="52" class="zl" fill="#64748b" text-anchor="middle">平台层</text>
+  <text x="318" y="68" class="zs" text-anchor="middle">只做壳</text>
+  <text x="942" y="46" class="zl" fill="#1f5f9e" text-anchor="middle">KVFerry 引擎层</text>
+  <text x="942" y="64" class="zs" text-anchor="middle">引擎副本 ×N · 决策服务 ×1</text>
+  <text x="1420" y="52" class="zl" fill="#0f766e" text-anchor="middle">存储层</text>
+
+  <!-- 引擎副本虚线框 -->
+  <rect x="660" y="340" width="596" height="350" rx="12" fill="none" stroke="#1f5f9e" stroke-width="1" stroke-dasharray="6 5" opacity="0.4"/>
+  <text x="674" y="358" class="zs" fill="#1f5f9e">引擎副本 ×N</text>
+
+  <!-- 参数卡 -->
+  <g>
+    <rect x="690" y="84" width="180" height="72" rx="10" fill="#ffffff" stroke="#e6c9a3" stroke-width="1.4"/>
+    <rect x="696" y="96" width="4" height="48" rx="2" fill="#b45309"/>
+    <text x="714" y="114" class="t" fill="#92400e">代价表</text>
+    <text x="714" y="140" class="b">按机实测 · 带版本</text>
+  </g>
+  <g>
+    <rect x="990" y="84" width="180" height="72" rx="10" fill="#ffffff" stroke="#e6c9a3" stroke-width="1.4"/>
+    <rect x="996" y="96" width="4" height="48" rx="2" fill="#b45309"/>
+    <text x="1014" y="114" class="t" fill="#92400e">形态索引</text>
+    <text x="1014" y="140" class="b">形态参数 · 分块能力</text>
+  </g>
+
+  <!-- 决策服务 -->
+  <g>
+    <rect x="690" y="200" width="480" height="120" rx="10" fill="#ffffff" stroke="#c7c2f5" stroke-width="1.5"/>
+    <rect x="696" y="212" width="4" height="96" rx="2" fill="#4338ca"/>
+    <text x="714" y="230" class="t" fill="#4338ca">决策服务 ×1</text>
+    <text x="714" y="256" class="b">索引与形态登记同进程</text>
+    <text x="714" y="282" class="b">输出：取回 / 重算 / 不可取回、块优先级、期限</text>
+  </g>
+
+  <!-- 主链卡片 -->
+  <g>
+    <rect x="60" y="380" width="210" height="150" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+    <rect x="66" y="392" width="4" height="126" rx="2" fill="#64748b"/>
+    <text x="84" y="414" class="t" fill="#475569">会话生命周期</text>
+    <text x="84" y="446" class="b">请求到达</text>
+    <text x="84" y="470" class="b">逐出</text>
+    <text x="84" y="494" class="b">再活跃</text>
+  </g>
+  <g>
+    <rect x="350" y="380" width="230" height="150" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+    <rect x="356" y="392" width="4" height="126" rx="2" fill="#64748b"/>
+    <text x="374" y="414" class="t" fill="#475569">薄网关</text>
+    <text x="374" y="446" class="b">接入</text>
+    <text x="374" y="470" class="b">会话编号</text>
+    <text x="374" y="494" class="b">路由执行</text>
+  </g>
+  <g>
+    <rect x="680" y="380" width="230" height="150" rx="10" fill="#ffffff" stroke="#a8c4e0" stroke-width="1.5"/>
+    <rect x="686" y="392" width="4" height="126" rx="2" fill="#1f5f9e"/>
+    <text x="704" y="414" class="t" fill="#1f5f9e">取回组件</text>
+    <text x="704" y="446" class="b">命中查询</text>
+    <text x="704" y="470" class="b">加载</text>
+    <text x="704" y="494" class="b">保存</text>
+  </g>
+  <g>
+    <rect x="1010" y="380" width="230" height="150" rx="10" fill="#ffffff" stroke="#a8c4e0" stroke-width="1.5"/>
+    <rect x="1016" y="392" width="4" height="126" rx="2" fill="#1f5f9e"/>
+    <text x="1034" y="414" class="t" fill="#1f5f9e">传输引擎</text>
+    <text x="1034" y="446" class="b">RDMA / TCP 双路径</text>
+    <text x="1034" y="470" class="b">直连 / 中转</text>
+  </g>
+
+  <!-- 存储节点 -->
+  <g>
+    <rect x="1320" y="380" width="220" height="150" rx="10" fill="#ffffff" stroke="#9ccbbd" stroke-width="1.5"/>
+    <rect x="1326" y="392" width="4" height="126" rx="2" fill="#0f766e"/>
+    <text x="1344" y="414" class="t" fill="#0f766e">存储节点 ×M</text>
+    <text x="1344" y="446" class="b">DRAM</text>
+    <text x="1344" y="470" class="b">NVMe</text>
+    <text x="1344" y="494" class="b">远端块服务</text>
+  </g>
+
+  <!-- 重叠执行 -->
+  <g>
+    <rect x="810" y="590" width="340" height="78" rx="10" fill="#ffffff" stroke="#a8c4e0" stroke-width="1.5"/>
+    <rect x="816" y="600" width="4" height="58" rx="2" fill="#1f5f9e"/>
+    <text x="834" y="620" class="t" fill="#1f5f9e">重叠执行</text>
+    <text x="834" y="646" class="b">计算 stream / 传输 stream · event 同步</text>
+  </g>
+
+  <!-- 箭头 -->
+  <line x1="282" y1="455" x2="338" y2="455" stroke="#475569" stroke-width="2.2" marker-end="url(#arw)"/>
+  <line x1="592" y1="455" x2="668" y2="455" stroke="#475569" stroke-width="2.2" marker-end="url(#arw)"/>
+  <line x1="922" y1="455" x2="998" y2="455" stroke="#475569" stroke-width="2.2" marker-end="url(#arw)"/>
+  <line x1="1252" y1="455" x2="1308" y2="455" stroke="#0f766e" stroke-width="1.8" marker-end="url(#arw-store)"/>
+
+  <path d="M780,166 L780,190" fill="none" stroke="#b45309" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#arw-param)"/>
+  <path d="M1080,166 L1080,190" fill="none" stroke="#b45309" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#arw-param)"/>
+  <path d="M255,371 L255,250 L682,250" fill="none" stroke="#b45309" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#arw-param)"/>
+
+  <line x1="730" y1="332" x2="730" y2="368" stroke="#4338ca" stroke-width="1.6" marker-end="url(#arw-dec)"/>
+  <line x1="850" y1="368" x2="850" y2="332" stroke="#475569" stroke-width="1.6" marker-end="url(#arw)"/>
+  <line x1="1130" y1="332" x2="1130" y2="368" stroke="#4338ca" stroke-width="1.6" marker-end="url(#arw-dec)"/>
+
+  <line x1="1125" y1="542" x2="1125" y2="578" stroke="#475569" stroke-width="1.6" marker-end="url(#arw)"/>
+  <path d="M795,542 L795,629 L798,629" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#arw)"/>
+
+  <!-- 箭头标签 -->
+  <text x="310" y="443" class="lab" text-anchor="middle">请求</text>
+  <text x="630" y="443" class="lab" text-anchor="middle">请求+会话编号</text>
+  <text x="960" y="443" class="lab" text-anchor="middle">异步加载</text>
+  <text x="1280" y="437" class="lab-s" text-anchor="middle">块读</text>
+  <text x="1280" y="474" class="lab-s" text-anchor="middle">优先级 · 期限</text>
+
+  <text x="790" y="186" class="lab-p">空间参数</text>
+  <text x="1090" y="186" class="lab-p">形态参数</text>
+  <text x="470" y="240" class="lab-p" text-anchor="middle">时间参数</text>
+
+  <text x="720" y="342" class="lab-d" text-anchor="end">取回 / 重算</text>
+  <text x="720" y="358" class="lab-d" text-anchor="end">不可取回</text>
+  <text x="862" y="342" class="lab">命中深度 · 层位</text>
+  <text x="862" y="358" class="lab">计算进度</text>
+  <text x="1142" y="352" class="lab-d">块优先级 + 期限</text>
+
+  <text x="1137" y="562" class="lab">传输 stream</text>
+  <text x="704" y="562" class="lab" text-anchor="end">计算 stream</text>
+</svg>
