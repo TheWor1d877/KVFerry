@@ -12,6 +12,9 @@
     <marker id="arw-store" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#0f766e"/>
     </marker>
+    <marker id="arw-agent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
     <style>
       .t { font-size: 15px; font-weight: 700; }
       .b { font-size: 13px; font-weight: 500; fill: #3f4a5a; }
@@ -43,27 +46,44 @@
   <rect x="660" y="340" width="596" height="350" rx="12" fill="none" stroke="#1f5f9e" stroke-width="1" stroke-dasharray="6 5" opacity="0.4"/>
   <text x="674" y="358" class="zs" fill="#1f5f9e">引擎副本 ×N</text>
 
-  <!-- 参数卡 -->
+  <!-- Agent / 应用（接入方，虚线边框表示平台层之外） -->
   <g>
-    <rect x="690" y="84" width="180" height="72" rx="10" fill="#ffffff" stroke="#e6c9a3" stroke-width="1.4"/>
-    <rect x="696" y="96" width="4" height="48" rx="2" fill="#b45309"/>
-    <text x="714" y="114" class="t" fill="#92400e">代价表</text>
-    <text x="714" y="140" class="b">按机实测 · 带版本</text>
+    <rect x="350" y="140" width="230" height="150" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="7 5"/>
+    <rect x="356" y="152" width="4" height="126" rx="2" fill="#64748b"/>
+    <text x="374" y="174" class="t" fill="#475569">Agent / 应用</text>
+    <text x="374" y="206" class="b">会话策略</text>
+    <text x="374" y="230" class="b">pin · must_fetch · release</text>
+    <text x="374" y="254" class="b">缓存生命周期声明</text>
+  </g>
+
+  <!-- 参数卡：静态能力表 / 运行时快照 / 形态索引 -->
+  <g>
+    <rect x="680" y="84" width="155" height="72" rx="10" fill="#ffffff" stroke="#e6c9a3" stroke-width="1.4"/>
+    <rect x="686" y="96" width="4" height="48" rx="2" fill="#b45309"/>
+    <text x="704" y="114" class="t" fill="#92400e">静态能力表</text>
+    <text x="704" y="140" class="b">带宽算力上限 · 版本口径</text>
   </g>
   <g>
-    <rect x="990" y="84" width="180" height="72" rx="10" fill="#ffffff" stroke="#e6c9a3" stroke-width="1.4"/>
-    <rect x="996" y="96" width="4" height="48" rx="2" fill="#b45309"/>
-    <text x="1014" y="114" class="t" fill="#92400e">形态索引</text>
-    <text x="1014" y="140" class="b">形态参数 · 分块能力</text>
+    <rect x="850" y="84" width="155" height="72" rx="10" fill="#ffffff" stroke="#e6c9a3" stroke-width="1.4"/>
+    <rect x="856" y="96" width="4" height="48" rx="2" fill="#b45309"/>
+    <text x="874" y="114" class="t" fill="#92400e">运行时快照</text>
+    <text x="874" y="140" class="b">在途带宽 · 队列 · 水位</text>
+  </g>
+  <g>
+    <rect x="1020" y="84" width="155" height="72" rx="10" fill="#ffffff" stroke="#e6c9a3" stroke-width="1.4"/>
+    <rect x="1026" y="96" width="4" height="48" rx="2" fill="#b45309"/>
+    <text x="1044" y="114" class="t" fill="#92400e">形态索引</text>
+    <text x="1044" y="140" class="b">形态参数 · 分块能力</text>
   </g>
 
   <!-- 决策服务 -->
   <g>
-    <rect x="690" y="200" width="480" height="120" rx="10" fill="#ffffff" stroke="#c7c2f5" stroke-width="1.5"/>
-    <rect x="696" y="212" width="4" height="96" rx="2" fill="#4338ca"/>
-    <text x="714" y="230" class="t" fill="#4338ca">决策服务 ×1</text>
-    <text x="714" y="256" class="b">索引与形态登记同进程</text>
-    <text x="714" y="282" class="b">输出：取回 / 重算 / 不可取回、块优先级、期限</text>
+    <rect x="680" y="200" width="500" height="120" rx="10" fill="#ffffff" stroke="#c7c2f5" stroke-width="1.5"/>
+    <rect x="686" y="212" width="4" height="100" rx="2" fill="#4338ca"/>
+    <text x="704" y="230" class="t" fill="#4338ca">决策服务 ×1</text>
+    <text x="704" y="254" class="b">静态上限 × 运行时可用 → 有效值</text>
+    <text x="704" y="278" class="b">输出：取回 / 重算 / 不可取回、块优先级、期限</text>
+    <text x="704" y="300" class="b">索引与形态登记同进程</text>
   </g>
 
   <!-- 主链卡片 -->
@@ -80,7 +100,7 @@
     <rect x="356" y="392" width="4" height="126" rx="2" fill="#64748b"/>
     <text x="374" y="414" class="t" fill="#475569">薄网关</text>
     <text x="374" y="446" class="b">接入</text>
-    <text x="374" y="470" class="b">会话编号</text>
+    <text x="374" y="470" class="b">session_id + 策略透传</text>
     <text x="374" y="494" class="b">路由执行</text>
   </g>
   <g>
@@ -117,33 +137,45 @@
     <text x="834" y="646" class="b">计算 stream / 传输 stream · event 同步</text>
   </g>
 
-  <!-- 箭头 -->
+  <!-- 箭头：主链 -->
   <line x1="282" y1="455" x2="338" y2="455" stroke="#475569" stroke-width="2.2" marker-end="url(#arw)"/>
   <line x1="592" y1="455" x2="668" y2="455" stroke="#475569" stroke-width="2.2" marker-end="url(#arw)"/>
   <line x1="922" y1="455" x2="998" y2="455" stroke="#475569" stroke-width="2.2" marker-end="url(#arw)"/>
   <line x1="1252" y1="455" x2="1308" y2="455" stroke="#0f766e" stroke-width="1.8" marker-end="url(#arw-store)"/>
 
-  <path d="M780,166 L780,190" fill="none" stroke="#b45309" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#arw-param)"/>
-  <path d="M1080,166 L1080,190" fill="none" stroke="#b45309" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#arw-param)"/>
-  <path d="M255,371 L255,250 L682,250" fill="none" stroke="#b45309" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#arw-param)"/>
+  <!-- 箭头：Agent → 网关（策略声明） -->
+  <line x1="465" y1="296" x2="465" y2="368" stroke="#64748b" stroke-width="1.8" marker-end="url(#arw-agent)"/>
 
+  <!-- 箭头：三张参数卡 → 决策服务 -->
+  <path d="M757,166 L757,192" fill="none" stroke="#b45309" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#arw-param)"/>
+  <path d="M927,166 L927,192" fill="none" stroke="#b45309" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#arw-param)"/>
+  <path d="M1097,166 L1097,192" fill="none" stroke="#b45309" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#arw-param)"/>
+
+  <!-- 箭头：会话生命周期 → 决策服务（时间参数） -->
+  <path d="M165,372 L672,310" fill="none" stroke="#b45309" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#arw-param)"/>
+
+  <!-- 箭头：决策服务 ↔ 取回组件 / 传输引擎 -->
   <line x1="730" y1="332" x2="730" y2="368" stroke="#4338ca" stroke-width="1.6" marker-end="url(#arw-dec)"/>
   <line x1="850" y1="368" x2="850" y2="332" stroke="#475569" stroke-width="1.6" marker-end="url(#arw)"/>
   <line x1="1130" y1="332" x2="1130" y2="368" stroke="#4338ca" stroke-width="1.6" marker-end="url(#arw-dec)"/>
 
+  <!-- 箭头：重叠执行 -->
   <line x1="1125" y1="542" x2="1125" y2="578" stroke="#475569" stroke-width="1.6" marker-end="url(#arw)"/>
   <path d="M795,542 L795,629 L798,629" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#arw)"/>
 
   <!-- 箭头标签 -->
   <text x="310" y="443" class="lab" text-anchor="middle">请求</text>
-  <text x="630" y="443" class="lab" text-anchor="middle">请求+会话编号</text>
+  <text x="630" y="437" class="lab" text-anchor="middle">请求+会话编号</text>
+  <text x="630" y="456" class="lab" text-anchor="middle">+策略</text>
   <text x="960" y="443" class="lab" text-anchor="middle">异步加载</text>
   <text x="1280" y="437" class="lab-s" text-anchor="middle">块读</text>
   <text x="1280" y="474" class="lab-s" text-anchor="middle">优先级 · 期限</text>
+  <text x="475" y="340" class="lab">策略声明</text>
 
-  <text x="790" y="186" class="lab-p">空间参数</text>
-  <text x="1090" y="186" class="lab-p">形态参数</text>
-  <text x="470" y="240" class="lab-p" text-anchor="middle">时间参数</text>
+  <text x="765" y="184" class="lab-p">静态上限</text>
+  <text x="935" y="184" class="lab-p">运行时可用量</text>
+  <text x="1105" y="184" class="lab-p">形态参数</text>
+  <text x="400" y="348" class="lab-p" text-anchor="middle">时间参数</text>
 
   <text x="720" y="342" class="lab-d" text-anchor="end">取回 / 重算</text>
   <text x="720" y="358" class="lab-d" text-anchor="end">不可取回</text>
