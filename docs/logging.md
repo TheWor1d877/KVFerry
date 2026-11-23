@@ -12,11 +12,13 @@ log/slog 的 JSONHandler 输出到 stdout，五处打点：
 
 | 打点 | 级别 | 字段 |
 |---|---|---|
-| 启动 | info | listen、副本数 |
-| 摘除 | warn | node、连续失败次数 |
+| 启动 | info | listen、upstreams |
+| 摘除 | warn | node、failures |
 | 恢复 | info | node |
-| 改路 | info | request_id、session、旧副本、新副本、耗时 ms |
+| 改路 | info | request_id、session、from、to、elapsed_ms |
 | 请求失败 | error | request_id、error |
+
+`request_id` 在请求未带 `X-Request-Id` 时为空串；`from` 与 `to` 是副本地址；`failures` 是触发摘除时的连续失败次数。
 
 改路日志在 transport 层打，请求失败日志在主流程打，两处都带 request_id，演练记录对账时按 request_id 关联。
 
