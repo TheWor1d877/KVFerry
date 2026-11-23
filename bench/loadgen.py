@@ -869,7 +869,7 @@ def run_round(spec: RoundSpec) -> dict[str, Any]:
         "group_params": spec.group_params,
         "cost_table_version": config.cost_table_version(),
         "bench_code_version": config.bench_code_version(),
-        "image_version": config.image_version(),
+
         "machine": machine,
         "gateway": gateway,
         "started_at": _iso(started_at),

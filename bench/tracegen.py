@@ -110,6 +110,26 @@ def load_base_trace(path: Path) -> BaseTrace:
     )
 
 
+def sample_lengths(
+    rng: random.Random, length_tier: str, count: int, token_limit: int
+) -> list[int]:
+    lengths: list[int] = []
+    for _ in range(count):
+        if length_tier == "short":
+            value = rng.uniform(*config.LENGTH_SHORT_RANGE)
+        elif length_tier == "mid":
+            low, high = config.LENGTH_MID_RANGE
+            value = math.exp(rng.uniform(math.log(low), math.log(high)))
+        elif length_tier == "long":
+            if rng.random() < config.LENGTH_LONG_MAIN_SHARE:
+                value = rng.uniform(*config.LENGTH_LONG_MAIN_RANGE)
+            else:
+                value = rng.uniform(*config.LENGTH_LONG_TAIL_RANGE)
+        else:
+            raise ValueError(f"未知长度档: {length_tier}")
+        lengths.append(min(int(round(value)), token_limit))
+    return lengths
+
 
 def scale_arrivals(
     base: BaseTrace, baseline_rate: float, load_tier: str, count: int

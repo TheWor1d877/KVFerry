@@ -17,7 +17,7 @@ ENV_DECISION_ENDPOINT = "KVFERRY_DECISION_ENDPOINT"
 ENV_FETCH_BUDGET = "KVFERRY_FETCH_BUDGET_BYTES"
 ENV_CONNECTOR_BUDGET = "KVFERRY_CONNECTOR_BUDGET_BYTES"
 ENV_COST_TABLE_VERSION = "KVFERRY_COST_TABLE_VERSION"
-ENV_IMAGE_VERSION = "KVFERRY_IMAGE_VERSION"
+
 
 DEFAULT_DATA_ROOT = "~/kvferry-bench/data"
 
@@ -316,9 +316,6 @@ def connector_budget_bytes() -> int | None:
 def cost_table_version() -> str:
     return os.environ.get(ENV_COST_TABLE_VERSION, "").strip() or "unknown"
 
-
-def image_version() -> str:
-    return os.environ.get(ENV_IMAGE_VERSION, "").strip() or "unknown"
 
 
 def group_launch_params(group: str) -> dict[str, Any]:
