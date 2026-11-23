@@ -1,0 +1,196 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="790" viewBox="0 0 1560 790" role="img" aria-label="KVFerry 实验装置总览" font-family="'Noto Sans CJK SC','PingFang SC','Microsoft YaHei','Inter',sans-serif">
+  <defs>
+    <marker id="m334155" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#334155"/></marker>
+    <marker id="m0D9488" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0D9488"/></marker>
+    <marker id="m64748B" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#64748B"/></marker>
+    <marker id="m2563EB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2563EB"/></marker>
+    <marker id="m94A3B8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#94A3B8"/></marker>
+    <style>
+      text{font-synthesis:none;}
+      .tt{font-size:14px;font-weight:700;fill:#0F172A;}
+      .ts{font-size:10px;font-weight:500;fill:#64748B;}
+      .t{font-size:13px;font-weight:700;fill:#0F172A;}
+      .t2{font-size:12px;font-weight:700;fill:#0F172A;}
+      .b{font-size:11.5px;font-weight:500;fill:#64748B;}
+      .s{font-size:10.5px;font-weight:500;fill:#64748B;}
+      .lab{font-size:11px;font-weight:600;paint-order:stroke;stroke:#FFFFFF;stroke-width:3.4px;stroke-linejoin:round;}
+      .lab-t{font-size:11px;font-weight:600;fill:#0D9488;paint-order:stroke;stroke:#FFFFFF;stroke-width:3.4px;stroke-linejoin:round;}
+      .lab-g{font-size:11px;font-weight:600;fill:#64748B;paint-order:stroke;stroke:#FFFFFF;stroke-width:3.4px;stroke-linejoin:round;}
+      .lab-b{font-size:11px;font-weight:600;fill:#2563EB;paint-order:stroke;stroke:#FFFFFF;stroke-width:3.4px;stroke-linejoin:round;}
+    </style>
+  </defs>
+
+  <rect width="1560" height="790" fill="#FFFFFF"/>
+
+  <!-- 分区带 -->
+  <rect x="36" y="36" width="556" height="520" rx="13" fill="#EEF0FF" stroke="#C7D2FE" stroke-width="1.3"/>
+  <rect x="52" y="50" width="4" height="15" rx="2" fill="#4F46E5"/>
+  <text x="66" y="62" class="tt">① 负载生成</text>
+  <text x="66" y="79" class="ts">装置自己的组件</text>
+
+  <rect x="612" y="36" width="480" height="520" rx="13" fill="#F6F2FE" stroke="#DDD0F5" stroke-width="1.3"/>
+  <rect x="628" y="50" width="4" height="15" rx="2" fill="#7C3AED"/>
+  <text x="642" y="62" class="tt">② 请求路径</text>
+  <text x="642" y="79" class="ts">复用正式项目组件</text>
+
+  <rect x="1112" y="36" width="412" height="520" rx="13" fill="#EFFBF8" stroke="#A7DDD4" stroke-width="1.3"/>
+  <rect x="1128" y="50" width="4" height="15" rx="2" fill="#0D9488"/>
+  <text x="1142" y="62" class="tt">③ 记录</text>
+  <text x="1142" y="79" class="ts">装置的输出账本</text>
+
+  <rect x="36" y="576" width="1488" height="190" rx="13" fill="#F0F5FE" stroke="#BFDBFE" stroke-width="1.3"/>
+  <rect x="52" y="590" width="4" height="15" rx="2" fill="#2563EB"/>
+  <text x="66" y="602" class="tt">④ 数据目录</text>
+  <text x="1508" y="602" class="ts" text-anchor="end">KVFERRY_BENCH_DATA_ROOT · 仓库外，仓库内只存脚本与清单</text>
+
+  <!-- 主链卡片 -->
+  <g>
+    <rect x="80" y="130" width="210" height="170" rx="10" fill="#FFFFFF" stroke="#4F46E5" stroke-width="1.2"/>
+    <text x="96" y="156" class="t">轨迹生成器</text>
+    <text x="96" y="184" class="b">按格重采样长度</text>
+    <text x="96" y="208" class="b">缩放到达间隔</text>
+    <text x="96" y="232" class="b">构造共享前缀</text>
+    <text x="96" y="262" class="s">同 seed 逐字节复现</text>
+  </g>
+  <g>
+    <rect x="340" y="130" width="220" height="170" rx="10" fill="#FFFFFF" stroke="#4F46E5" stroke-width="1.2"/>
+    <text x="356" y="156" class="t">负载台</text>
+    <text x="356" y="184" class="b">按轨迹回放请求</text>
+    <text x="356" y="208" class="b">每轮统计 TTFT · 命中率</text>
+    <text x="356" y="232" class="b">每秒采样队列与资源</text>
+    <text x="356" y="262" class="s">对账 · 饱和 · 压力档判定</text>
+  </g>
+  <g>
+    <rect x="640" y="130" width="200" height="170" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.2"/>
+    <text x="656" y="156" class="t">网关</text>
+    <text x="656" y="176" class="s">复用正式项目 · 不改代码</text>
+    <text x="656" y="202" class="b">透传 session_id · 策略</text>
+    <text x="656" y="226" class="b">sticky 路由</text>
+    <text x="656" y="250" class="b">探针摘除 · 改路</text>
+  </g>
+
+  <rect x="900" y="110" width="170" height="210" rx="12" fill="none" stroke="#7C3AED" stroke-width="1" stroke-dasharray="6 5" opacity="0.45"/>
+  <text x="914" y="128" font-size="10" font-weight="500" fill="#7C3AED">引擎副本 ×N</text>
+  <g>
+    <rect x="908" y="150" width="154" height="150" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.2"/>
+    <text x="922" y="176" class="t">引擎副本</text>
+    <text x="922" y="200" class="b">原生 vLLM</text>
+    <text x="922" y="222" class="b">本地前缀缓存</text>
+    <text x="922" y="246" class="s">/health · /metrics</text>
+    <text x="922" y="266" class="s">挂取回组件后不变</text>
+  </g>
+
+  <!-- 决策服务（装置阶段占位） -->
+  <g>
+    <rect x="1230" y="96" width="200" height="64" rx="10" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1.2" stroke-dasharray="7 5"/>
+    <text x="1246" y="118" class="t">决策服务 ×1</text>
+    <text x="1246" y="140" class="s">装置阶段只定写入通路</text>
+  </g>
+
+  <!-- 实验记录表 -->
+  <g>
+    <rect x="1120" y="180" width="384" height="280" rx="12" fill="#FFFFFF" stroke="#0D9488" stroke-width="1.3"/>
+    <text x="1136" y="204" class="t">实验记录表</text>
+    <text x="1136" y="222" class="s">按 request id / 块哈希关联</text>
+  </g>
+  <g>
+    <rect x="1136" y="232" width="352" height="48" rx="8" fill="#FFFFFF" stroke="#0D9488" stroke-width="1"/>
+    <text x="1150" y="251" class="t2">决策记录</text>
+    <text x="1474" y="251" class="s" text-anchor="end">每请求一条</text>
+    <text x="1150" y="269" class="s">写入：决策服务</text>
+  </g>
+  <g>
+    <rect x="1136" y="288" width="352" height="48" rx="8" fill="#FFFFFF" stroke="#0D9488" stroke-width="1"/>
+    <text x="1150" y="307" class="t2">退回与降级事件</text>
+    <text x="1474" y="307" class="s" text-anchor="end">每次一条</text>
+    <text x="1150" y="325" class="s">写入：引擎侧组件</text>
+  </g>
+  <g>
+    <rect x="1136" y="344" width="352" height="48" rx="8" fill="#FFFFFF" stroke="#0D9488" stroke-width="1"/>
+    <text x="1150" y="363" class="t2">驱逐事件</text>
+    <text x="1474" y="363" class="s" text-anchor="end">每块一条</text>
+    <text x="1150" y="381" class="s">写入：引擎侧组件</text>
+  </g>
+  <g>
+    <rect x="1136" y="400" width="352" height="48" rx="8" fill="#FFFFFF" stroke="#0D9488" stroke-width="1"/>
+    <text x="1150" y="419" class="t2">演练记录</text>
+    <text x="1474" y="419" class="s" text-anchor="end">每次一条</text>
+    <text x="1150" y="437" class="s">写入：负载台 · 网关</text>
+  </g>
+
+  <!-- 数据目录六层 -->
+  <g>
+    <rect x="60" y="618" width="212" height="110" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.2"/>
+    <text x="76" y="646" class="t">source</text>
+    <text x="76" y="674" class="b">底稿与语料</text>
+    <text x="76" y="696" class="s">trace 底稿 · 语料文本</text>
+  </g>
+  <g>
+    <rect x="300" y="618" width="212" height="110" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.2"/>
+    <text x="316" y="646" class="t">traces</text>
+    <text x="316" y="674" class="b">轨迹文件</text>
+    <text x="316" y="696" class="s">按模型档</text>
+  </g>
+  <g>
+    <rect x="540" y="618" width="212" height="110" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.2"/>
+    <text x="556" y="646" class="t">runs</text>
+    <text x="556" y="674" class="b">每轮目录</text>
+    <text x="556" y="696" class="s">含 run_meta.json</text>
+  </g>
+  <g>
+    <rect x="780" y="618" width="212" height="110" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.2"/>
+    <text x="796" y="646" class="t">procs</text>
+    <text x="796" y="674" class="b">副本登记</text>
+    <text x="796" y="696" class="s">up 写入</text>
+  </g>
+  <g>
+    <rect x="1020" y="618" width="212" height="110" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.2"/>
+    <text x="1036" y="646" class="t">logs</text>
+    <text x="1036" y="674" class="b">引擎日志</text>
+    <text x="1036" y="696" class="s">含预热日志</text>
+  </g>
+  <g>
+    <rect x="1260" y="618" width="212" height="110" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.2"/>
+    <text x="1276" y="646" class="t">summary</text>
+    <text x="1276" y="674" class="b">汇总结果</text>
+    <text x="1276" y="696" class="s">collect 汇总</text>
+  </g>
+
+  <!-- 主链箭头 -->
+  <g fill="none" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M292,215 L336,215" marker-end="url(#m334155)"/>
+    <path d="M562,215 L636,215" marker-end="url(#m334155)"/>
+    <path d="M842,215 L896,215" marker-end="url(#m334155)"/>
+  </g>
+  <text x="314" y="203" class="lab" fill="#334155" text-anchor="middle">轨迹文件</text>
+  <text x="599" y="203" class="lab" fill="#334155" text-anchor="middle">回放请求 · 会话头</text>
+  <text x="869" y="203" class="lab" fill="#334155" text-anchor="middle">sticky 路由</text>
+
+  <!-- 数据流箭头 -->
+  <g fill="none" stroke="#0D9488" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M166,618 L166,304" marker-end="url(#m0D9488)"/>
+    <path d="M240,302 L240,560 L410,560 L410,614" marker-end="url(#m0D9488)"/>
+    <path d="M450,302 L450,560 L890,560 L890,614" marker-end="url(#m0D9488)"/>
+    <path d="M985,322 L985,560 L1130,560 L1130,614" marker-end="url(#m0D9488)"/>
+  </g>
+  <text x="172" y="480" class="lab-t">底稿 · 语料</text>
+  <text x="246" y="530" class="lab-t">落盘</text>
+  <text x="456" y="480" class="lab-t">run_meta.json</text>
+  <text x="991" y="480" class="lab-t">引擎日志</text>
+
+  <!-- 写入通路箭头 -->
+  <g fill="none" stroke="#64748B" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M400,302 L400,390 L1116,390" marker-end="url(#m64748B)"/>
+    <path d="M740,302 L740,412 L1116,412" marker-end="url(#m64748B)"/>
+    <path d="M1072,240 L1116,240" marker-end="url(#m64748B)"/>
+  </g>
+  <text x="420" y="382" class="lab-g">演练记录</text>
+  <text x="760" y="404" class="lab-g">改路事件</text>
+  <text x="1094" y="228" class="lab-g" text-anchor="middle">驱逐 · 退回事件</text>
+
+  <!-- 占位与汇总 -->
+  <path d="M1330,160 L1330,176" fill="none" stroke="#94A3B8" stroke-width="0.9" stroke-dasharray="5 4" marker-end="url(#m94A3B8)"/>
+  <text x="1338" y="172" class="lab-g">决策记录</text>
+  <path d="M994,673 L1018,673" fill="none" stroke="#2563EB" stroke-width="0.9" marker-end="url(#m2563EB)"/>
+  <text x="1006" y="661" class="lab-b" text-anchor="middle">collect</text>
+</svg>
