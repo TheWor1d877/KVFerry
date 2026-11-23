@@ -49,6 +49,10 @@ PREFIX_TAGS = ("p0", "p50", "p80")
 PREFIX_RATIO_BY_TAG = {"p0": 0.0, "p50": 0.5, "p80": 0.8}
 LOAD_TIERS = ("low", "high")
 
+SESSION_MULTI_TURN_SHARE = 0.7   # D25、R14
+SESSION_ROUNDS_RANGE = (2, 4)    # D25：多轮会话轮数采样范围（含端点）
+SESSION_ROUND_GROWTH = (256, 1024)  # D25：轮间增量 token 数范围
+
 LOW_LOAD_SCALE = 0.5
 HIGH_LOAD_SCALE = 1.5
 MEASURE_WINDOW_S = 300

@@ -1,4 +1,4 @@
-"""轨迹生成：底稿清洗、长度采样、前缀构造与合成、到达时刻缩放、落盘（D1、D2、D4~D7）。"""
+"""轨迹生成：底稿清洗、长度采样、会话构造、前缀构造与合成、到达时刻缩放、落盘（D1~D7、D25）。"""
 
 from __future__ import annotations
 
@@ -217,11 +217,93 @@ def _calibrate_text(
     return text, len(tokenizer.encode(text, add_special_tokens=False))
 
 
-def _session_for(base: BaseTrace, index: int) -> str:
-    session = base.sessions[index] if index < len(base.sessions) else None
-    if session:
-        return session
-    return f"s{index:06d}"
+def plan_sessions(rng: random.Random, request_count: int) -> list[str]:
+    """按 SESSION_MULTI_TURN_SHARE 把请求分进连续区段的多轮会话，其余单轮（D25、R14）。"""
+    share = config.SESSION_MULTI_TURN_SHARE
+    low, high = config.SESSION_ROUNDS_RANGE
+    if share <= 0 or request_count < low:
+        return [f"s{index:06d}" for index in range(request_count)]
+    target_multi = int(round(request_count * share))
+    plan: list[str] = []
+    multi_used = 0
+    seq = 0
+    index = 0
+    while index < request_count:
+        remaining = request_count - index
+        quota_left = target_multi - multi_used
+        if quota_left >= low and remaining >= low:
+            rounds = rng.randint(low, min(high, remaining, quota_left))
+            plan.extend([f"s{seq:06d}"] * rounds)
+            seq += 1
+            multi_used += rounds
+            index += rounds
+        else:
+            plan.append(f"s{seq:06d}")
+            seq += 1
+            index += 1
+    return plan
+
+
+def _tier_bounds(length_tier: str) -> tuple[int, int]:
+    if length_tier == "short":
+        return config.LENGTH_SHORT_RANGE
+    if length_tier == "mid":
+        return config.LENGTH_MID_RANGE
+    if length_tier == "long":
+        return (config.LENGTH_LONG_TAIL_RANGE[0], config.LENGTH_LONG_MAIN_RANGE[1])
+    raise ValueError(f"未知长度档: {length_tier}")
+
+
+def _session_targets(
+    rng: random.Random, length_tier: str, max_rounds: int, token_limit: int
+) -> list[int]:
+    """会话各轮目标长度：轮 1 按档内采样，轮间增量在 SESSION_ROUND_GROWTH 内采样，档上界封顶（D25）。"""
+    upper = _tier_bounds(length_tier)[1]
+    growth_low, growth_high = config.SESSION_ROUND_GROWTH
+    targets = sample_lengths(rng, length_tier, 1, token_limit)
+    while len(targets) < max_rounds:
+        budget = upper - targets[-1]
+        if budget < growth_low:
+            break
+        targets.append(targets[-1] + rng.randint(growth_low, min(growth_high, budget)))
+    return targets
+
+
+def _settle_round(
+    tokenizer,
+    ids: list[int],
+    target: int,
+    corpus_ids: list[int],
+    body_start: int,
+    lower: int,
+    upper: int,
+    prev_len: int,
+) -> tuple[str, int]:
+    """会话轮校准：逼近目标长度，并保证档区间与严格递增（D25）。"""
+    text, length = _calibrate_text(tokenizer, ids, target, corpus_ids, body_start)
+    attempts = 0
+    while length <= prev_len and attempts < 4 and length < upper:
+        encoded = tokenizer.encode(text, add_special_tokens=False)
+        room = upper - length
+        add = min(max(prev_len + 2 - length, 1), room)
+        encoded = encoded + _take(corpus_ids, body_start + len(encoded), add)
+        text = tokenizer.decode(encoded, skip_special_tokens=True)
+        length = len(tokenizer.encode(text, add_special_tokens=False))
+        attempts += 1
+    if length > upper:
+        encoded = tokenizer.encode(text, add_special_tokens=False)[:upper]
+        text = tokenizer.decode(encoded, skip_special_tokens=True)
+        length = len(tokenizer.encode(text, add_special_tokens=False))
+    if length < lower:
+        encoded = tokenizer.encode(text, add_special_tokens=False)
+        encoded = encoded + _take(corpus_ids, body_start + len(encoded), lower - length)
+        text = tokenizer.decode(encoded, skip_special_tokens=True)
+        length = len(tokenizer.encode(text, add_special_tokens=False))
+    if length <= prev_len:
+        raise ValueError(
+            f"会话轮校准后不满足严格递增: prev={prev_len} current={length} target={target}"
+        )
+    return text, length
 
 
 def generate_cell(
@@ -247,35 +329,133 @@ def generate_cell(
     rng = random.Random(config.seed_for_cell(seed, cell.cell_id))
     lengths = sample_lengths(rng, cell.length_tier, request_count, token_limit)
     arrivals = scale_arrivals(base, baseline_rate, cell.load_tier, request_count)
+    session_rng = random.Random(rng.getrandbits(64))  # D25：会话随机流从主 rng 派生，同 seed 可复现
+    session_plan = plan_sessions(session_rng, request_count)
 
-    prefix_targets = [int(round(length * cell.prefix_ratio)) for length in lengths]
+    # 会话目标链（D25）：轮 1 用档内预采样值，预算截断后的释放成员保持预采样长度退为单轮
+    lower, upper = _tier_bounds(cell.length_tier)
+    planned = list(lengths)
+    spans: dict[int, list[int]] = {}
+    index = 0
+    while index < request_count:
+        end = index + 1
+        while end < request_count and session_plan[end] == session_plan[index]:
+            end += 1
+        members = end - index
+        if members >= 2:
+            targets = _session_targets(session_rng, cell.length_tier, members, token_limit)
+            spans[index] = targets
+            planned[index : index + len(targets)] = targets
+        index = end
+
+    prefix_targets = [int(round(length * cell.prefix_ratio)) for length in planned]
     max_prefix = max(prefix_targets) if prefix_targets else 0
-    corpus_need = max_prefix + max(lengths) + 64
+    corpus_need = max_prefix + max(planned) + 64
     corpus_ids = _corpus_token_ids(tokenizer, corpus_lines, corpus_need)
     shared_prefix = corpus_ids[:max_prefix]
 
-
-    requests: list[dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
     synthetic_tokens = 0
     total_tokens = 0
-    for index in range(request_count):
+    index = 0
+    while index < request_count:
+        targets = spans.get(index)
+        if targets is not None:
+            body_start = rng.randrange(len(corpus_ids))
+            p_first = prefix_targets[index]
+            cursor = body_start + (targets[0] - p_first)
+            prev_text = ""
+            prev_len = 0
+            prev_t = arrivals[index]
+            for offset, target in enumerate(targets):
+                pos = index + offset
+                t_ms = arrivals[pos] if offset == 0 else max(arrivals[pos], prev_t + 1.0)
+                if offset == 0:
+                    ids = shared_prefix[:p_first] + _take(
+                        corpus_ids, body_start, target - p_first
+                    )
+                    text, length = _settle_round(
+                        tokenizer, ids, target, corpus_ids, body_start,
+                        lower, upper, 0,
+                    )
+                else:
+                    growth = target - targets[offset - 1]
+                    delta_ids = _take(corpus_ids, cursor, growth)
+                    ids = tokenizer.encode(prev_text, add_special_tokens=False) + delta_ids
+                    text, length = _settle_round(
+                        tokenizer, ids, prev_len + growth, corpus_ids, body_start,
+                        lower, upper, prev_len,
+                    )
+                    cursor += growth
+                synthetic_tokens += min(p_first, length)
+                total_tokens += length
+                entries.append(
+                    {
+                        "t_ms": t_ms,
+                        "n_input": length,
+                        "text": text,
+                        "group": ("m", index),
+                    }
+                )
+                prev_text = text
+                prev_len = length
+                prev_t = t_ms
+            index += len(targets)
+            continue
         prefix_tokens = prefix_targets[index]
-        body_tokens = lengths[index] - prefix_tokens
+        body_tokens = planned[index] - prefix_tokens
         body_start = rng.randrange(len(corpus_ids))
         ids = shared_prefix[:prefix_tokens] + _take(corpus_ids, body_start, body_tokens)
         text, final_length = _calibrate_text(
-            tokenizer, ids, lengths[index], corpus_ids, body_start
+            tokenizer, ids, planned[index], corpus_ids, body_start
         )
         synthetic_tokens += min(prefix_tokens, final_length)
         total_tokens += final_length
-        requests.append(
+        entries.append(
             {
                 "t_ms": arrivals[index],
                 "n_input": final_length,
-                "session": _session_for(base, index),
                 "text": text,
+                "group": ("s", index),
             }
         )
+        index += 1
+
+    # 会话编号按请求顺序定号（D3、R2）：预算截断释放的成员独立成组
+    sessions: list[str] = []
+    seq = 0
+    prev_group: tuple[str, int] | None = None
+    for entry in entries:
+        if entry["group"] != prev_group:
+            sessions.append(f"s{seq:06d}")
+            seq += 1
+            prev_group = entry["group"]
+        else:
+            sessions.append(sessions[-1])
+
+    session_counts: dict[str, int] = {}
+    for session in sessions:
+        session_counts[session] = session_counts.get(session, 0) + 1
+    multi_sizes = [size for size in session_counts.values() if size >= 2]
+    session_stats = {
+        "n_sessions": len(session_counts),
+        "multi_turn_share_actual": (
+            round(sum(multi_sizes) / request_count, 6) if request_count else 0.0
+        ),
+        "avg_rounds": (
+            round(sum(multi_sizes) / len(multi_sizes), 4) if multi_sizes else 0.0
+        ),
+    }
+
+    requests = [
+        {
+            "t_ms": entry["t_ms"],
+            "n_input": entry["n_input"],
+            "session": sessions[i],
+            "text": entry["text"],
+        }
+        for i, entry in enumerate(entries)
+    ]
 
     meta = {
         "prefix_ratio": cell.prefix_ratio,
@@ -285,6 +465,7 @@ def generate_cell(
         "synthetic_ratio": round(synthetic_tokens / total_tokens, 6) if total_tokens else 0.0,
         "n_requests": len(requests),
         "seed": seed,
+        "session_stats": session_stats,  # D25
     }
     return GeneratedTrace(meta=meta, requests=requests)
 
@@ -371,7 +552,10 @@ def run_tracegen(
         total += len(trace.requests)
         print(
             f"{cell.cell_id}\trequests={len(trace.requests)}"
-            f"\tsynthetic_ratio={trace.meta['synthetic_ratio']}\t{path}"
+            f"\tsynthetic_ratio={trace.meta['synthetic_ratio']}"
+            f"\tsessions={trace.meta['session_stats']['n_sessions']}"
+            f"\tmulti_share={trace.meta['session_stats']['multi_turn_share_actual']}"
+            f"\t{path}"
         )
     print(f"完成 {len(cells)} 格，共 {total} 个请求")
     return 0
