@@ -436,6 +436,10 @@ class Sampler:
         return total if seen else None
 
 
+def _request_id(spec: RoundSpec, index: int) -> str:
+    return f"{spec.mode}{spec.rep}-{index:06d}"
+
+
 async def _send_one(
     client,
     spec: RoundSpec,
@@ -574,7 +578,7 @@ async def _replay(
                 delay = t0 + float(request["t_ms"]) / 1000.0 - time.monotonic()
                 if delay > 0:
                     await asyncio.sleep(delay)
-                request_id = f"{spec.mode}{spec.rep}-{index:06d}"
+                request_id = _request_id(spec, index)
                 tasks.append(
                     asyncio.create_task(
                         _send_one(client, spec, request, request_id, logger, semaphore)
@@ -601,6 +605,72 @@ async def _replay(
         stop.set()
         await sample_task
     return results
+
+
+def collect_drill_events(
+    gateway: str,
+    run_dir: Path,
+    planned_ids: set[str],
+    logger: RoundLogger,
+) -> dict[str, Any]:
+    import httpx
+
+    url = gateway.rstrip("/") + "/drill-events"
+    result: dict[str, Any] = {
+        "endpoint": url,
+        "collected": False,
+        "n_events": 0,
+        "n_by_action": {},
+        "reroute_total": 0,
+        "reroute_matched": 0,
+        "reroute_unmatched": [],
+        "error": None,
+    }
+    try:
+        response = httpx.get(url, timeout=10.0)
+    except Exception as exc:
+        result["error"] = f"{type(exc).__name__}: {exc}"
+        logger.emit("drill_events", **result)
+        return result
+    if response.status_code >= 400:
+        result["error"] = f"HTTP {response.status_code}"
+        logger.emit("drill_events", **result)
+        return result
+    try:
+        events = response.json()
+    except ValueError as exc:
+        result["error"] = f"响应 JSON 解析失败: {exc}"
+        logger.emit("drill_events", **result)
+        return result
+    if not isinstance(events, list):
+        result["error"] = "响应不是 JSON 数组"
+        logger.emit("drill_events", **result)
+        return result
+    for event in events:
+        if not isinstance(event, dict):
+            result["error"] = "事件不是 JSON 对象"
+            logger.emit("drill_events", **result)
+            return result
+    counts: dict[str, int] = {}
+    for event in events:
+        record.append_drill(run_dir, event)
+        action = str(event.get("action", ""))
+        counts[action] = counts.get(action, 0) + 1
+    unmatched = [
+        str(event.get("request_id") or "")
+        for event in events
+        if str(event.get("action")) == "reroute"
+        and str(event.get("request_id") or "") not in planned_ids
+    ]
+    reroute_total = counts.get("reroute", 0)
+    result["collected"] = True
+    result["n_events"] = len(events)
+    result["n_by_action"] = counts
+    result["reroute_total"] = reroute_total
+    result["reroute_matched"] = reroute_total - len(unmatched)
+    result["reroute_unmatched"] = unmatched
+    logger.emit("drill_events", **result)
+    return result
 
 
 def _percentile(values: list[float], percent: float) -> float | None:
@@ -832,6 +902,8 @@ def run_round(spec: RoundSpec) -> dict[str, Any]:
     finished_at = time.time()
 
     metrics = _summarize(meta, requests, results, spec.group)
+    planned_ids = {_request_id(spec, index) for index in range(len(requests))}
+    drill = collect_drill_events(gateway, run_dir, planned_ids, logger)
     reconciliation = judge_reconciliation(
         spec.tier, spec.group, spec.cell.cell_id, spec.mode, spec.rep, metrics
     )
@@ -881,6 +953,7 @@ def run_round(spec: RoundSpec) -> dict[str, Any]:
             "connection_sat": config.LOADGEN_CONNECTION_SAT,
         },
         "metrics": metrics,
+        "drill": drill,
         "validity": {
             "valid": valid,
             "reasons": reasons,
