@@ -11,15 +11,16 @@ import fetchbench
 import recalib
 import tables
 
-_GIB_BYTES = 1024 ** 3
-_MIB_BYTES = 1024 ** 2
+_GIB_BYTES = 1024**3
+_MIB_BYTES = 1024**2
 
 
 class ProbeLoop:
     """常驻探针主体：每 probe_interval_s 对每条传输路径比对实测耗时与表值。"""
 
-    def __init__(self, cfg: config.RuntimeConfig,
-                 nominal: dict[str, float] | None = None) -> None:
+    def __init__(
+        self, cfg: config.RuntimeConfig, nominal: dict[str, float] | None = None
+    ) -> None:
         self._cfg = cfg
         self._nominal = dict(nominal) if nominal else {}
         try:
@@ -30,7 +31,7 @@ class ProbeLoop:
             print(f"表加载失败，探针不启动: {exc}", file=sys.stderr)
             sys.exit(1)
         self._consecutive: dict[str, int] = {}  # 路径 → 越阈连续计数（D33）
-        self._expired: set[str] = set()         # 过期态路径：跳过常规比对直接重试重标
+        self._expired: set[str] = set()  # 过期态路径：跳过常规比对直接重试重标
         # 路径 → 最近一次观测 (表值, 实测, 偏差%)，供 expire 事件取值
         self._last: dict[str, tuple[float, float, float]] = {}
 
@@ -70,11 +71,13 @@ class ProbeLoop:
         if block_mib >= fit.min_block_mib:
             # 表值按 median 口径公式代入：块字节除以 median 带宽加 median 固定开销（R16）
             expected = (block_mib * _MIB_BYTES) / (
-                fit.bandwidth_gib_s_median * _GIB_BYTES) + fit.fixed_cost_s_median
+                fit.bandwidth_gib_s_median * _GIB_BYTES
+            ) + fit.fixed_cost_s_median
         else:
             # 小于最小档字节按最小档直测耗时折算（D33）
             expected = fit.min_block_s_median * (
-                (block_mib * _MIB_BYTES) / min_block_bytes)
+                (block_mib * _MIB_BYTES) / min_block_bytes
+            )
         deviation_pct = abs(observed - expected) / expected * 100.0
         self._last[path] = (expected, observed, deviation_pct)
         # 偏差绝对值超过阈值记该窗口越阈（D33）
@@ -82,12 +85,14 @@ class ProbeLoop:
 
     def _recalibrate(self, path: str) -> None:
         ok = recalib.recalibrate_t1_path(
-            self._cfg.table_root, path, "probe", self._nominal.get(path))
+            self._cfg.table_root, path, "probe", self._nominal.get(path)
+        )
         if ok:
             try:
                 # 成功后重新加载表，过期态解除，该路径恢复常规比对（D33）
                 self._tables = tables.CostTables.load(
-                    self._cfg.table_root, self._cfg.declared_version)
+                    self._cfg.table_root, self._cfg.declared_version
+                )
             except (RuntimeError, OSError) as exc:
                 print(f"重标成功但表重载失败，沿用旧表: {exc}", file=sys.stderr)
             self._expired.discard(path)

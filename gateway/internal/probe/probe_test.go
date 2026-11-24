@@ -356,8 +356,7 @@ func TestProbeSuccessShortOfThresholdDoesNotRecover(t *testing.T) {
 
 	removed := make(chan string, 4)
 	recovered := make(chan string, 4)
-	var m *Manager
-	m = NewManager(newTestConfig([]string{addr}, interval, threshold, time.Second), Callbacks{
+	m := NewManager(newTestConfig([]string{addr}, interval, threshold, time.Second), Callbacks{
 		OnRemove:  func(node string) { removed <- node },
 		OnRecover: func(node string) { recovered <- node },
 	})

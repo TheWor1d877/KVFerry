@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import pytest
-
 import recompbench
 import tables
 
@@ -83,8 +82,7 @@ def test_build_t2_lattice_shape_and_direct_rung():
     # 64k 直测档与四档同构存储，同为 RecomputeCell 格值，不拟合（D27）
     direct = t2["mixed"][recompbench.DIRECT_LENGTH_TOKENS]
     assert isinstance(direct, tables.RecomputeCell)
-    assert direct == tables.RecomputeCell(
-        per_token_s_median=2e-6, per_token_s_p25=2e-6)
+    assert direct == tables.RecomputeCell(per_token_s_median=2e-6, per_token_s_p25=2e-6)
 
 
 def test_quantiles_take_third_and_second_of_five():

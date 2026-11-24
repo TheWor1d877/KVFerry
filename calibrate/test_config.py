@@ -6,9 +6,8 @@ import urllib.request
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 import config
+import pytest
 
 _ENV_KEYS = (
     config.ENV_COST_TABLE_ROOT,
@@ -101,7 +100,9 @@ def test_provenance_fields_from_injected_commands(monkeypatch):
         if cmd[0] == "ethtool":
             return _fake_completed("Settings for eth0\n")
         if cmd[0] == "lspci":
-            return _fake_completed("17:00.0 VGA compatible controller: NVIDIA Corporation\n")
+            return _fake_completed(
+                "17:00.0 VGA compatible controller: NVIDIA Corporation\n"
+            )
         raise AssertionError(f"意外命令: {cmd}")
 
     class FakeResponse:
@@ -115,7 +116,9 @@ def test_provenance_fields_from_injected_commands(monkeypatch):
             return b'{"version": "0.9.2"}'
 
     monkeypatch.setattr(config.subprocess, "run", fake_run)
-    monkeypatch.setattr(urllib.request, "urlopen", lambda url, timeout=None: FakeResponse())
+    monkeypatch.setattr(
+        urllib.request, "urlopen", lambda url, timeout=None: FakeResponse()
+    )
     prov = config.collect_provenance("http://127.0.0.1:8000", "qwen3-4b", "fp16", 16)
     assert prov.gpu_name == "NVIDIA A100"
     assert prov.driver_version == "550.54"
@@ -157,7 +160,9 @@ def test_provenance_unknown_on_nonzero_exit(monkeypatch):
             return False
 
     monkeypatch.setattr(config.subprocess, "run", failing_run)
-    monkeypatch.setattr(urllib.request, "urlopen", lambda url, timeout=None: BrokenResponse())
+    monkeypatch.setattr(
+        urllib.request, "urlopen", lambda url, timeout=None: BrokenResponse()
+    )
     prov = config.collect_provenance("http://127.0.0.1:9", "qwen3-4b", "fp16", 16)
     assert prov.gpu_name == "unknown"
     assert prov.driver_version == "unknown"

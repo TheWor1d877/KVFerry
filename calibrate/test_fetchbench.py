@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-
 import fetchbench
+import pytest
 import tables
 
 
@@ -13,16 +12,24 @@ def _linear(block_mib: int, ic: float = 0.01) -> float:
 
 
 def _seq(center: float, spread: float) -> tuple[float, ...]:
-    return (center - spread, center - spread / 2, center,
-            center + spread / 2, center + spread)
+    return (
+        center - spread,
+        center - spread / 2,
+        center,
+        center + spread / 2,
+        center + spread,
+    )
 
 
-def _sample(path: str, block_mib: int, seq: tuple[float, ...]) -> fetchbench.BlockSample:
+def _sample(
+    path: str, block_mib: int, seq: tuple[float, ...]
+) -> fetchbench.BlockSample:
     return fetchbench.BlockSample(path=path, block_mib=block_mib, elapsed_s=seq)
 
 
-def _linear_samples(path: str, ic: float = 0.01,
-                    overrides: dict[int, float] | None = None) -> list:
+def _linear_samples(
+    path: str, ic: float = 0.01, overrides: dict[int, float] | None = None
+) -> list:
     overrides = overrides or {}
     ladder = fetchbench.PATH_BLOCK_LADDERS[path]
     samples = []
@@ -43,8 +50,9 @@ def _make_fake(table: dict[tuple[str, int], tuple[float, ...]] | None = None):
         if seq is None:
             center = _linear(block_mib)
             seq = _seq(center, center * 0.004)
-        return fetchbench.BlockSample(path=path, block_mib=block_mib,
-                                      elapsed_s=seq[:reps])
+        return fetchbench.BlockSample(
+            path=path, block_mib=block_mib, elapsed_s=seq[:reps]
+        )
 
     return fake, calls
 
@@ -87,7 +95,8 @@ def test_fit_bandwidth_excludes_min_block():
     assert fit.bandwidth_gib_s_median == pytest.approx(1.0, rel=1e-9)
     assert fit.fixed_cost_s_median == pytest.approx(0.01, abs=1e-9)
     assert fit.residuals_s[fetchbench.MIN_FIT_BLOCK_MIB] == pytest.approx(
-        100.0 - _linear(8), abs=1e-9)
+        100.0 - _linear(8), abs=1e-9
+    )
 
 
 def test_check_fit_bandwidth_gap_violation():
@@ -149,10 +158,12 @@ def test_build_t1_refine_round_success(monkeypatch):
 
 
 def test_build_t1_refine_rounds_exhausted(monkeypatch):
-    fake, calls = _make_fake({
-        ("nvme-staged", 8): (0.196, 0.198, 0.2, 0.202, 0.204),
-        ("nvme-staged", 16): (0.0176, 0.0178, 0.018, 0.0182, 0.0184),
-    })
+    fake, calls = _make_fake(
+        {
+            ("nvme-staged", 8): (0.196, 0.198, 0.2, 0.202, 0.204),
+            ("nvme-staged", 16): (0.0176, 0.0178, 0.018, 0.0182, 0.0184),
+        }
+    )
     monkeypatch.setattr(fetchbench, "measure_block", fake)
     with pytest.raises(RuntimeError, match="三重检查"):
         fetchbench.build_t1(None)
@@ -167,7 +178,9 @@ def test_build_t1_all_paths_and_min_block_direct(monkeypatch):
     fit = t1["dram"]
     assert fit.min_block_mib == 8
     assert fit.min_block_s_median == pytest.approx(_linear(8), rel=1e-9)
-    assert fit.min_block_s_p25 == pytest.approx(_linear(8) - _linear(8) * 0.002, rel=1e-9)
+    assert fit.min_block_s_p25 == pytest.approx(
+        _linear(8) - _linear(8) * 0.002, rel=1e-9
+    )
     assert fit.bandwidth_gib_s_median == pytest.approx(1.0, rel=1e-6)
     assert fit.fixed_cost_s_median == pytest.approx(0.01, abs=1e-9)
     assert [b for p, b in calls if p == "dram"] == [8, 64, 256, 1024, 4096]

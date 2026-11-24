@@ -9,7 +9,7 @@ import re
 import shutil
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import config
@@ -25,8 +25,8 @@ TABLE_FILES = (T1_FILE, T2_FILE, T3_FILE, T4_FILE, TUNED_FILE)
 _DIR_NAME_RE = re.compile(r"^\d{8}T\d{6}Z$")
 _UNKNOWN = "unknown"
 _COLLISION_RETRIES = 3
-_GIB_BYTES = 1024 ** 3
-_MIB_BYTES = 1024 ** 2
+_GIB_BYTES = 1024**3
+_MIB_BYTES = 1024**2
 
 
 @dataclass(frozen=True)
@@ -35,8 +35,8 @@ class PathFit:
     bandwidth_gib_s_p25: float
     fixed_cost_s_median: float
     fixed_cost_s_p25: float
-    min_block_mib: int           # 最小档字节，直测档
-    min_block_s_median: float    # 最小档实测耗时，秒
+    min_block_mib: int  # 最小档字节，直测档
+    min_block_s_median: float  # 最小档实测耗时，秒
     min_block_s_p25: float
 
 
@@ -50,13 +50,17 @@ class RecomputeCell:
 class CostTables:
     version: str
     provenance: config.Provenance
-    calibrated_at: str         # ISO 8601 UTC 时刻
-    t1: dict[str, PathFit]                    # 键为路径名，值为拟合参数与最小档直测值
-    t2: dict[str, dict[int, RecomputeCell]]   # 外层键为口径，内层键为长度档（token 数）
-    t3_forward: dict[int, dict[int, float]]   # 外层键为 decode 批，内层键为 prefill 段量（token 数，0 为纯计算列），值为折扣
-    t3_reverse: dict[int, dict[int, float]]   # 外层键为在飞块数，内层键为 decode 批，值为增幅
-    t4: dict[str, float]                      # lookup_s 与 rpc_s 两键
-    tuned: dict[str, float]                   # hysteresis、gate_pct、concurrency_cap 三键
+    calibrated_at: str  # ISO 8601 UTC 时刻
+    t1: dict[str, PathFit]  # 键为路径名，值为拟合参数与最小档直测值
+    t2: dict[str, dict[int, RecomputeCell]]  # 外层键为口径，内层键为长度档（token 数）
+    t3_forward: dict[
+        int, dict[int, float]
+    ]  # 外层键为 decode 批，内层键为 prefill 段量（token 数，0 为纯计算列），值为折扣
+    t3_reverse: dict[
+        int, dict[int, float]
+    ]  # 外层键为在飞块数，内层键为 decode 批，值为增幅
+    t4: dict[str, float]  # lookup_s 与 rpc_s 两键
+    tuned: dict[str, float]  # hysteresis、gate_pct、concurrency_cap 三键
 
     @classmethod
     def load(cls, table_root: Path, declared_version: str) -> CostTables:
@@ -64,7 +68,10 @@ class CostTables:
         payloads: dict[str, dict] = {}
         for name in TABLE_FILES:
             payload = _read_json(version_dir / name)
-            if declared_version != _UNKNOWN and payload.get("version") != declared_version:
+            if (
+                declared_version != _UNKNOWN
+                and payload.get("version") != declared_version
+            ):
                 raise RuntimeError(
                     f"{name} 内 version {payload.get('version')!r} 与声明版本 "
                     f"{declared_version!r} 不一致，拒绝加载（D30）"
@@ -78,7 +85,9 @@ class CostTables:
             )
         manifest_files = manifest.get("files")
         if not isinstance(manifest_files, dict):
-            raise RuntimeError(f"manifest 缺少文件记录（D29）: {version_dir / MANIFEST_FILE}")
+            raise RuntimeError(
+                f"manifest 缺少文件记录（D29）: {version_dir / MANIFEST_FILE}"
+            )
         for name in TABLE_FILES:
             entry = manifest_files.get(name)
             if not isinstance(entry, dict):
@@ -113,7 +122,10 @@ class CostTables:
             for blocks, row in t3_payload["t3_reverse"].items()
         }
         t4 = {str(key): float(value) for key, value in payloads[T4_FILE]["t4"].items()}
-        tuned = {str(key): float(value) for key, value in payloads[TUNED_FILE]["tuned"].items()}
+        tuned = {
+            str(key): float(value)
+            for key, value in payloads[TUNED_FILE]["tuned"].items()
+        }
         return cls(
             version=str(manifest["version"]),
             provenance=provenance,
@@ -134,7 +146,9 @@ class CostTables:
         min_block_bytes = fit.min_block_mib * _MIB_BYTES
         if fetch_bytes < min_block_bytes:
             return fit.min_block_s_p25 * (fetch_bytes / min_block_bytes)
-        return fetch_bytes / (fit.bandwidth_gib_s_p25 * _GIB_BYTES) + fit.fixed_cost_s_p25
+        return (
+            fetch_bytes / (fit.bandwidth_gib_s_p25 * _GIB_BYTES) + fit.fixed_cost_s_p25
+        )
 
     def lookup_recompute(self, mode: str, computed_tokens: int) -> float:
         ladder_map = self.t2.get(mode)
@@ -197,7 +211,9 @@ def verify_dir(version_dir: Path, declared_version: str) -> None:
     try:
         datetime.strptime(version_dir.name, "%Y%m%dT%H%M%SZ")
     except ValueError:
-        raise RuntimeError(f"目录名不是合法 UTC 时刻: {version_dir.name}（D29）") from None
+        raise RuntimeError(
+            f"目录名不是合法 UTC 时刻: {version_dir.name}（D29）"
+        ) from None
     manifest_path = version_dir / MANIFEST_FILE
     if not manifest_path.is_file():
         raise RuntimeError(f"manifest 缺失: {manifest_path}（D29）")
@@ -233,8 +249,11 @@ def _resolve_version_dir(table_root: Path, declared_version: str) -> Path:
         return version_dir
     try:
         candidates = sorted(
-            (p for p in table_root.iterdir()
-             if p.is_dir() and _DIR_NAME_RE.fullmatch(p.name)),
+            (
+                p
+                for p in table_root.iterdir()
+                if p.is_dir() and _DIR_NAME_RE.fullmatch(p.name)
+            ),
             key=lambda p: p.name,
         )
     except OSError as exc:
@@ -318,7 +337,7 @@ def _fsync_dir(path: Path) -> None:
 
 
 def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _format_timestamp(moment: datetime) -> str:

@@ -10,13 +10,13 @@ from dataclasses import dataclass, field
 
 import config
 import events
-import recompbench
 import recalib
+import recompbench
 import tables
 
 _SOURCE = "passive"
 _TABLE = "t2"
-_MODE = "mixed"            # 与 T2 同档混批口径的 median 比对（D34）
+_MODE = "mixed"  # 与 T2 同档混批口径的 median 比对（D34）
 _CLOSE_JOIN_TIMEOUT_S = 5.0
 
 
@@ -27,7 +27,7 @@ def _now() -> float:
 @dataclass(frozen=True)
 class PrefillSample:
     computed_tokens: int
-    segment_s: float        # prefill 段耗时，单位秒
+    segment_s: float  # prefill 段耗时，单位秒
     infight_blocks: int
 
 
@@ -40,8 +40,12 @@ class _Window:
 class PassiveAggregator:
     """嵌进决策服务进程，决策服务在每次 prefill 完成后调用 record。"""
 
-    def __init__(self, cfg: config.RuntimeConfig, tables: tables.CostTables,
-                 engine: recompbench.EngineClient) -> None:
+    def __init__(
+        self,
+        cfg: config.RuntimeConfig,
+        tables: tables.CostTables,
+        engine: recompbench.EngineClient,
+    ) -> None:
         self._cfg = cfg
         self._tables = tables
         self._engine = engine
@@ -50,8 +54,8 @@ class PassiveAggregator:
         self._windows: dict[int, _Window] = {}  # 长度档 → 开着的窗口，按档独立
         self._consecutive: dict[int, int] = {}  # 长度档 → 越阈连续计数（D34）
         self._thread: threading.Thread | None = None  # 进程内同一时刻至多一个重标线程
-        self._active: int | None = None         # 当前重标线程正在处理的档
-        self._pending: list[int] = []           # 跨档排队，等当前线程跑完依次执行
+        self._active: int | None = None  # 当前重标线程正在处理的档
+        self._pending: list[int] = []  # 跨档排队，等当前线程跑完依次执行
         self._closed = False
 
     def record(self, sample: PrefillSample) -> None:
@@ -66,8 +70,10 @@ class PassiveAggregator:
             self._windows[length] = window
         window.samples.append(sample)
         elapsed = now - window.start_s
-        if (len(window.samples) >= self._cfg.drift_sample_min
-                and elapsed >= self._cfg.drift_window_min_s):
+        if (
+            len(window.samples) >= self._cfg.drift_sample_min
+            and elapsed >= self._cfg.drift_window_min_s
+        ):
             # 开满下限时长且样本凑齐：聚合比对后关窗，样本不滚入下一窗口（D34）
             self._close_window(length)
         elif elapsed >= self._cfg.drift_window_max_s:
@@ -116,8 +122,9 @@ class PassiveAggregator:
         else:
             self._consecutive[length] = 0  # 未超阈窗口把连续计数清零
         if self._consecutive.get(length, 0) >= self._cfg.drift_trigger_consecutive:
-            events.emit_expire(_SOURCE, _TABLE, str(length), expected, observed,
-                               deviation_pct)
+            events.emit_expire(
+                _SOURCE, _TABLE, str(length), expected, observed, deviation_pct
+            )
             events.emit_degrade(_SOURCE, _TABLE, str(length), "start")
             self._start_recalib(length)
 
@@ -130,7 +137,8 @@ class PassiveAggregator:
             return
         self._active = length
         self._thread = threading.Thread(
-            target=self._recalib_worker, args=(length,), daemon=True)
+            target=self._recalib_worker, args=(length,), daemon=True
+        )
         self._thread.start()
 
     def _recalib_worker(self, length: int) -> None:
@@ -146,13 +154,15 @@ class PassiveAggregator:
 
     def _recalib_once(self, length: int) -> None:
         ok = recalib.recalibrate_t2_length(
-            self._cfg.table_root, length, _SOURCE, self._engine)
+            self._cfg.table_root, length, _SOURCE, self._engine
+        )
         if not ok:
             return  # 重标失败保持降级态，该档后续窗口再次越阈时重新触发
         try:
             # 成功后重载 T2，档位映射随新表刷新（D34）
             self._tables = tables.CostTables.load(
-                self._cfg.table_root, self._cfg.declared_version)
+                self._cfg.table_root, self._cfg.declared_version
+            )
             self._refresh_ladder()
         except (RuntimeError, OSError) as exc:
             print(f"重标成功但 T2 重载失败，沿用旧表: {exc}", file=sys.stderr)

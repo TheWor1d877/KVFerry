@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
-
-import pytest
+from datetime import UTC, datetime
 
 import config
+import pytest
 import tables
 
 
@@ -30,20 +29,30 @@ def _make_tables(version: str = "20260101T000000Z") -> tables.CostTables:
         version=version,
         provenance=_make_provenance(),
         calibrated_at="2026-01-01T00:00:00Z",
-        t1={"dram": tables.PathFit(
-            bandwidth_gib_s_median=20.0,
-            bandwidth_gib_s_p25=19.0,
-            fixed_cost_s_median=1e-4,
-            fixed_cost_s_p25=1.1e-4,
-            min_block_mib=8,
-            min_block_s_median=5e-4,
-            min_block_s_p25=5.5e-4,
-        )},
-        t2={"mixed": {
-            1024: tables.RecomputeCell(per_token_s_median=1e-5, per_token_s_p25=1.1e-5),
-            4096: tables.RecomputeCell(per_token_s_median=2e-5, per_token_s_p25=2.1e-5),
-            65536: tables.RecomputeCell(per_token_s_median=3e-5, per_token_s_p25=3.1e-5),
-        }},
+        t1={
+            "dram": tables.PathFit(
+                bandwidth_gib_s_median=20.0,
+                bandwidth_gib_s_p25=19.0,
+                fixed_cost_s_median=1e-4,
+                fixed_cost_s_p25=1.1e-4,
+                min_block_mib=8,
+                min_block_s_median=5e-4,
+                min_block_s_p25=5.5e-4,
+            )
+        },
+        t2={
+            "mixed": {
+                1024: tables.RecomputeCell(
+                    per_token_s_median=1e-5, per_token_s_p25=1.1e-5
+                ),
+                4096: tables.RecomputeCell(
+                    per_token_s_median=2e-5, per_token_s_p25=2.1e-5
+                ),
+                65536: tables.RecomputeCell(
+                    per_token_s_median=3e-5, per_token_s_p25=3.1e-5
+                ),
+            }
+        },
         t3_forward={1: {0: 1.0, 512: 0.9}},
         t3_reverse={1: {1: 0.1}},
         t4={"lookup_s": 1e-6, "rpc_s": 1e-4},
@@ -70,7 +79,8 @@ def test_write_version_layout(tmp_path):
     final = tables.write_version(root, _make_tables())
     assert re.fullmatch(r"\d{8}T\d{6}Z", final.name)
     assert sorted(p.name for p in final.iterdir()) == sorted(
-        (*tables.TABLE_FILES, tables.MANIFEST_FILE))
+        (*tables.TABLE_FILES, tables.MANIFEST_FILE)
+    )
     for name in tables.TABLE_FILES:
         payload = json.loads((final / name).read_text(encoding="utf-8"))
         assert _TOP_LEVEL_KEYS <= set(payload)
@@ -110,7 +120,8 @@ def test_manifest_hash_reject(tmp_path):
     tampered = json.loads((final / tables.T4_FILE).read_text(encoding="utf-8"))
     tampered["t4"]["rpc_s"] = 9.9
     (final / tables.T4_FILE).write_text(
-        json.dumps(tampered, ensure_ascii=False), encoding="utf-8")
+        json.dumps(tampered, ensure_ascii=False), encoding="utf-8"
+    )
     with pytest.raises(RuntimeError):
         tables.CostTables.load(root, final.name)
     with pytest.raises(RuntimeError):
@@ -136,7 +147,8 @@ def test_declared_version_mismatch_rejected(tmp_path):
     tampered = json.loads((final / tables.T2_FILE).read_text(encoding="utf-8"))
     tampered["version"] = "20250101T000000Z"
     (final / tables.T2_FILE).write_text(
-        json.dumps(tampered, ensure_ascii=False), encoding="utf-8")
+        json.dumps(tampered, ensure_ascii=False), encoding="utf-8"
+    )
     with pytest.raises(RuntimeError):
         tables.CostTables.load(root, final.name)
     with pytest.raises(RuntimeError):
@@ -164,7 +176,7 @@ def test_verify_dir_rejects_bad_name_and_declaration(tmp_path):
 def test_write_version_collision_retries(tmp_path, monkeypatch):
     root = tmp_path / "tables"
     root.mkdir()
-    base = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC)
     moments = [base, base.replace(second=1)]
     monkeypatch.setattr(tables, "_now_utc", lambda: moments.pop(0))
     sleeps: list[float] = []
@@ -179,7 +191,7 @@ def test_write_version_collision_retries(tmp_path, monkeypatch):
 def test_write_version_collision_exhausted(tmp_path, monkeypatch):
     root = tmp_path / "tables"
     root.mkdir()
-    base = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC)
     moments = [base.replace(second=s) for s in range(4)]
     monkeypatch.setattr(tables, "_now_utc", lambda: moments.pop(0))
     monkeypatch.setattr(tables.time, "sleep", lambda s: None)
@@ -207,10 +219,11 @@ def test_write_failure_leaves_no_staging(tmp_path, monkeypatch):
 
 def test_lookup_fetch_uses_p25_and_min_block():
     source = _make_tables()
-    gib = 1024 ** 3
-    mib = 1024 ** 2
+    gib = 1024**3
+    mib = 1024**2
     assert source.lookup_fetch("dram", 64 * mib) == pytest.approx(
-        64 * mib / (19.0 * gib) + 1.1e-4)
+        64 * mib / (19.0 * gib) + 1.1e-4
+    )
     assert source.lookup_fetch("dram", 4 * mib) == pytest.approx(5.5e-4 * 0.5)
     with pytest.raises(RuntimeError):
         source.lookup_fetch("nope", 1024)

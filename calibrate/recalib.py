@@ -14,8 +14,9 @@ import tables
 _RECALIB_LOCK = threading.Lock()
 
 
-def recalibrate_t1_path(table_root: Path, path: str, trigger: str,
-                        nominal_gib_s: float | None) -> bool:
+def recalibrate_t1_path(
+    table_root: Path, path: str, trigger: str, nominal_gib_s: float | None
+) -> bool:
     """单路径重标：重测拟合、以当前生效表为基线替换该路径行、落新版本目录。"""
     with _RECALIB_LOCK:
         events.emit_recalibrate(trigger, "t1", path, "start")
@@ -38,8 +39,9 @@ def recalibrate_t1_path(table_root: Path, path: str, trigger: str,
         return True
 
 
-def recalibrate_t2_length(table_root: Path, length_tokens: int,
-                          trigger: str, engine: recompbench.EngineClient) -> bool:
+def recalibrate_t2_length(
+    table_root: Path, length_tokens: int, trigger: str, engine: recompbench.EngineClient
+) -> bool:
     """单长度档重标：两种口径都重测、以当前生效表为基线替换该档格值、落新版本目录。"""
     with _RECALIB_LOCK:
         target = str(length_tokens)

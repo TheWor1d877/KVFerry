@@ -27,7 +27,7 @@ func TestErrorHandlerNoHealthyWrites503(t *testing.T) {
 	writeTransportError(rec, req, errors.New("dial tcp: connection refused"), probes)
 
 	res := rec.Result()
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503", res.StatusCode)
 	}
@@ -59,7 +59,7 @@ func TestErrorHandlerHealthyWrites502WithoutHeader(t *testing.T) {
 	writeTransportError(rec, req, errors.New("upstream dial failed"), probes)
 
 	res := rec.Result()
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusBadGateway {
 		t.Fatalf("status = %d, want 502", res.StatusCode)
 	}
@@ -162,7 +162,7 @@ func TestErrorHandlerRerouteFailedNoHealthy503EndToEnd(t *testing.T) {
 	rp.ServeHTTP(rec, req)
 
 	res := rec.Result()
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503", res.StatusCode)
 	}

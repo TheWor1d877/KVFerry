@@ -10,7 +10,7 @@ import sys
 import threading
 import time
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import config
@@ -26,18 +26,25 @@ import tables
 _RPC_PROBE_PATH = "/fetch/probe"
 _RPC_PROBE_BLOCK_MIB = 64
 
-_VLLM_COMPLETIONS_PATH = "/v1/completions"   # vLLM OpenAI 兼容 completions 端点
-_VLLM_SLEEP_PATH = "/sleep"                  # vLLM dev 管理端点：睡眠并丢弃 KV cache
-_VLLM_WAKE_UP_PATH = "/wake_up"              # vLLM dev 管理端点：恢复推理服务
+_VLLM_COMPLETIONS_PATH = "/v1/completions"  # vLLM OpenAI 兼容 completions 端点
+_VLLM_SLEEP_PATH = "/sleep"  # vLLM dev 管理端点：睡眠并丢弃 KV cache
+_VLLM_WAKE_UP_PATH = "/wake_up"  # vLLM dev 管理端点：恢复推理服务
 _HTTP_TIMEOUT_S = 600
 _RPC_PROBE_TIMEOUT_S = 2
-_PREFILL_TOKEN_ID_LOW = 1000    # 随机 token id 区间下限，避开特殊 token 区段
+_PREFILL_TOKEN_ID_LOW = 1000  # 随机 token id 区间下限，避开特殊 token 区段
 _PREFILL_TOKEN_ID_HIGH = 30000  # 区间上限取常见词表的安全范围
 
 _PRECISION_ELEMENT_BYTES = {
-    "fp16": 2, "float16": 2, "half": 2,
-    "bf16": 2, "bfloat16": 2,
-    "fp8": 1, "float8": 1, "fp8_e4m3": 1, "fp8_e4m3fn": 1, "fp8_e5m2": 1,
+    "fp16": 2,
+    "float16": 2,
+    "half": 2,
+    "bf16": 2,
+    "bfloat16": 2,
+    "fp8": 1,
+    "float8": 1,
+    "fp8_e4m3": 1,
+    "fp8_e4m3fn": 1,
+    "fp8_e5m2": 1,
 }
 
 
@@ -48,11 +55,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--fetch-endpoint", default=None, help="取回组件端点")
     parser.add_argument("--model-path", default=None, help="模型路径")
     parser.add_argument("--kv-precision", default="unknown", help="KV 精度口径")
-    parser.add_argument("--block-tokens", type=int, default=16, help="KV 块 token 数口径")
-    parser.add_argument("--kv-bytes-per-token", type=float, default=None,
-                        help="每 token KV 字节数（可缺省，缺省按模型 config.json 推算，D37）")
+    parser.add_argument(
+        "--block-tokens", type=int, default=16, help="KV 块 token 数口径"
+    )
+    parser.add_argument(
+        "--kv-bytes-per-token",
+        type=float,
+        default=None,
+        help="每 token KV 字节数（可缺省，缺省按模型 config.json 推算，D37）",
+    )
     parser.add_argument("--trace", default=None, help="定值扫描轨迹路径")
-    parser.add_argument("--nominal-file", default=None, help="路径到标称带宽的 JSON 映射")
+    parser.add_argument(
+        "--nominal-file", default=None, help="路径到标称带宽的 JSON 映射"
+    )
     return parser
 
 
@@ -70,8 +85,11 @@ def main(argv: list[str] | None = None) -> int:
         nominal = _load_nominal(args.nominal_file)
         print("采口径字段", file=sys.stderr)
         provenance = config.collect_provenance(
-            args.engine or "", args.model_path or "unknown",
-            args.kv_precision, args.block_tokens)
+            args.engine or "",
+            args.model_path or "unknown",
+            args.kv_precision,
+            args.block_tokens,
+        )
         print("T1 传输标定", file=sys.stderr)
         t1 = fetchbench.build_t1(nominal)
         print("T2 重算标定", file=sys.stderr)
@@ -86,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
         cost_tables = tables.CostTables(
             version="",
             provenance=provenance,
-            calibrated_at=datetime.now(timezone.utc).isoformat(),
+            calibrated_at=datetime.now(UTC).isoformat(),
             t1=t1,
             t2=t2,
             t3_forward=t3_forward,
@@ -95,11 +113,13 @@ def main(argv: list[str] | None = None) -> int:
             tuned={},
         )
         print("T4 开销实测", file=sys.stderr)
-        cost_tables.t4 = interbench.measure_decision_overhead(cost_tables,
-                                                              args.fetch_endpoint)
+        cost_tables.t4 = interbench.measure_decision_overhead(
+            cost_tables, args.fetch_endpoint
+        )
         print("定值扫描", file=sys.stderr)
         cost_tables.tuned = interbench.sweep_tuned(
-            Path(args.trace) if args.trace else None, cost_tables)
+            Path(args.trace) if args.trace else None, cost_tables
+        )
         final_dir = tables.write_version(table_root, cost_tables)
         print(f"落盘版本目录: {final_dir}", file=sys.stderr)
         return 0
@@ -173,8 +193,7 @@ class _VllmEngineClient:
         # 服务器须以环境变量 VLLM_SERVER_DEV_MODE=1 启动才挂载该组端点，且引擎
         # 须带 --enable-sleep-mode 启动；sleep level=1 丢弃 KV cache 并把权重
         # 挪到 CPU，wake_up 恢复推理服务
-        _post_json(self._admin_url(_VLLM_SLEEP_PATH) + "?level=1", {},
-                   _HTTP_TIMEOUT_S)
+        _post_json(self._admin_url(_VLLM_SLEEP_PATH) + "?level=1", {}, _HTTP_TIMEOUT_S)
         _post_json(self._admin_url(_VLLM_WAKE_UP_PATH), {}, _HTTP_TIMEOUT_S)
 
     def _completions_url(self) -> str:
@@ -206,8 +225,10 @@ def _post_json(url: str, payload: dict, timeout_s: float) -> dict:
 
 
 def _random_token_ids(count: int) -> list[int]:
-    return [random.randint(_PREFILL_TOKEN_ID_LOW, _PREFILL_TOKEN_ID_HIGH)
-            for _ in range(count)]
+    return [
+        random.randint(_PREFILL_TOKEN_ID_LOW, _PREFILL_TOKEN_ID_HIGH)
+        for _ in range(count)
+    ]
 
 
 def _resolve_kv_bytes_per_token(args: argparse.Namespace) -> float:
@@ -216,8 +237,10 @@ def _resolve_kv_bytes_per_token(args: argparse.Namespace) -> float:
     if args.kv_bytes_per_token is not None:
         return float(args.kv_bytes_per_token)
     if not (args.model_path or "").strip():
-        raise ValueError("--kv-bytes-per-token 未指定且无 --model-path，"
-                         "每 token KV 字节数无从推算（D37）")
+        raise ValueError(
+            "--kv-bytes-per-token 未指定且无 --model-path，"
+            "每 token KV 字节数无从推算（D37）"
+        )
     return _infer_kv_bytes_per_token(args.model_path)
 
 
@@ -225,11 +248,12 @@ def _infer_kv_bytes_per_token(model_path: str) -> float:
     # D37：每 token 字节数 = 2 × 层数 × KV 头数 × 每头维度 × 精度字节；
     # config 无 head_dim 时按 hidden_size 除以注意力头数；fp16 与 bf16 每元素
     # 2 字节、fp8 为 1 字节；含 kv_lora_rank（MLA 压缩特征）推算不适用
-    payload = json.loads(
-        (Path(model_path) / "config.json").read_text(encoding="utf-8"))
+    payload = json.loads((Path(model_path) / "config.json").read_text(encoding="utf-8"))
     if "kv_lora_rank" in payload:
-        raise ValueError("模型 config.json 含 kv_lora_rank（MLA 压缩形态），"
-                         "每 token KV 字节数推算不适用，须显式指定（D37）")
+        raise ValueError(
+            "模型 config.json 含 kv_lora_rank（MLA 压缩形态），"
+            "每 token KV 字节数推算不适用，须显式指定（D37）"
+        )
     layers = int(payload["num_hidden_layers"])
     kv_heads = int(payload.get("num_key_value_heads") or payload["num_attention_heads"])
     head_dim = payload.get("head_dim")
@@ -242,8 +266,9 @@ def _infer_kv_bytes_per_token(model_path: str) -> float:
 def _precision_element_bytes(torch_dtype: str) -> int:
     key = torch_dtype.strip().lower()
     if key not in _PRECISION_ELEMENT_BYTES:
-        raise ValueError(f"无法识别 KV 精度 {torch_dtype!r}，"
-                         "每 token KV 字节数推算不适用（D37）")
+        raise ValueError(
+            f"无法识别 KV 精度 {torch_dtype!r}，每 token KV 字节数推算不适用（D37）"
+        )
     return _PRECISION_ELEMENT_BYTES[key]
 
 

@@ -19,7 +19,9 @@ RECOMPUTE_MODES = ("prefill-only", "mixed")
 MEASURE_REPS = 5
 
 _LADDER_TOKENS = (*LENGTH_LADDER_TOKENS, DIRECT_LENGTH_TOKENS)
-_MIXED_DECODE_BATCH = 1  # 混批负载固定 1 路，更大 decode 批的拖累由 T3 反向子表承担（D27）
+_MIXED_DECODE_BATCH = (
+    1  # 混批负载固定 1 路，更大 decode 批的拖累由 T3 反向子表承担（D27）
+)
 
 
 class EngineClient(Protocol):
@@ -37,8 +39,9 @@ class RecomputeSample:
     per_token_s: tuple[float, ...]  # 每 token 时间序列，单位秒
 
 
-def measure_recompute(engine: EngineClient, mode: str, length_tokens: int,
-                      reps: int = MEASURE_REPS) -> RecomputeSample:
+def measure_recompute(
+    engine: EngineClient, mode: str, length_tokens: int, reps: int = MEASURE_REPS
+) -> RecomputeSample:
     if mode not in RECOMPUTE_MODES:
         raise ValueError(f"未知重算口径: {mode}（D27）")
     if reps <= 0:
@@ -52,10 +55,13 @@ def measure_recompute(engine: EngineClient, mode: str, length_tokens: int,
         # 分母取响应里的实际计算 token 数，命中段不计入分母（D27）
         computed, elapsed_s = engine.prefill_segment(length_tokens)
         if computed <= 0:
-            raise RuntimeError("prefill 实际计算 token 数非正，每 token 分母失真（D27）")
+            raise RuntimeError(
+                "prefill 实际计算 token 数非正，每 token 分母失真（D27）"
+            )
         samples.append(elapsed_s / computed)
-    return RecomputeSample(mode=mode, length_tokens=length_tokens,
-                           per_token_s=tuple(samples))
+    return RecomputeSample(
+        mode=mode, length_tokens=length_tokens, per_token_s=tuple(samples)
+    )
 
 
 def build_t2(engine: EngineClient) -> dict[str, dict[int, tables.RecomputeCell]]:
@@ -72,8 +78,9 @@ def build_t2(engine: EngineClient) -> dict[str, dict[int, tables.RecomputeCell]]
     return result
 
 
-def remeasure_length(engine: EngineClient,
-                     length_tokens: int) -> dict[str, tables.RecomputeCell]:
+def remeasure_length(
+    engine: EngineClient, length_tokens: int
+) -> dict[str, tables.RecomputeCell]:
     if length_tokens not in _LADDER_TOKENS:
         raise ValueError(f"长度档不在档位表内: {length_tokens}（D27）")
     # 单档重标两种口径都重测（D34）

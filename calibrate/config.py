@@ -25,15 +25,15 @@ _CMD_TIMEOUT_S = 10
 
 @dataclass(frozen=True)
 class RuntimeConfig:
-    table_root: Path           # 表库根目录，KVFERRY_COST_TABLE_ROOT，必填（D36）
-    declared_version: str      # KVFERRY_COST_TABLE_VERSION，未设置按 unknown（D30）
-    probe_interval_s: int      # 缺省 30（D32）
-    probe_block_mib: int       # 缺省 64（D32）
-    drift_threshold_pct: float # 缺省 20（D32）
+    table_root: Path  # 表库根目录，KVFERRY_COST_TABLE_ROOT，必填（D36）
+    declared_version: str  # KVFERRY_COST_TABLE_VERSION，未设置按 unknown（D30）
+    probe_interval_s: int  # 缺省 30（D32）
+    probe_block_mib: int  # 缺省 64（D32）
+    drift_threshold_pct: float  # 缺省 20（D32）
     drift_trigger_consecutive: int  # 缺省 3（D32）
-    drift_sample_min: int      # 缺省 100（D32）
-    drift_window_min_s: int    # 缺省 60（D32）
-    drift_window_max_s: int    # 缺省 1800（D32）
+    drift_sample_min: int  # 缺省 100（D32）
+    drift_window_min_s: int  # 缺省 60（D32）
+    drift_window_max_s: int  # 缺省 1800（D32）
 
 
 def load_runtime_config() -> RuntimeConfig:
@@ -42,7 +42,8 @@ def load_runtime_config() -> RuntimeConfig:
         raise ValueError(f"{ENV_COST_TABLE_ROOT} 未设置，表库根目录必填（D36）")
     return RuntimeConfig(
         table_root=Path(root_raw).expanduser(),
-        declared_version=os.environ.get(_ENV_COST_TABLE_VERSION, "").strip() or _UNKNOWN,
+        declared_version=os.environ.get(_ENV_COST_TABLE_VERSION, "").strip()
+        or _UNKNOWN,
         probe_interval_s=_positive_int(ENV_PROBE_INTERVAL_S, 30),
         probe_block_mib=_positive_int(ENV_PROBE_BLOCK_MIB, 64),
         drift_threshold_pct=_positive_float(ENV_DRIFT_THRESHOLD_PCT, 20),
@@ -91,8 +92,9 @@ class Provenance:
     block_tokens: int
 
 
-def collect_provenance(engine_endpoint: str, model: str,
-                       kv_precision: str, block_tokens: int) -> Provenance:
+def collect_provenance(
+    engine_endpoint: str, model: str, kv_precision: str, block_tokens: int
+) -> Provenance:
     gpu_name, driver_version = _query_gpu()
     return Provenance(
         gpu_name=gpu_name,
@@ -108,7 +110,9 @@ def collect_provenance(engine_endpoint: str, model: str,
 
 def _run_command(cmd: list[str]) -> str | None:
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=_CMD_TIMEOUT_S)
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=_CMD_TIMEOUT_S
+        )
     except (OSError, subprocess.SubprocessError):
         return None
     if result.returncode != 0:
@@ -118,7 +122,8 @@ def _run_command(cmd: list[str]) -> str | None:
 
 def _query_gpu() -> tuple[str, str]:
     raw = _run_command(
-        ["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv,noheader"])
+        ["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv,noheader"]
+    )
     if not raw:
         return _UNKNOWN, _UNKNOWN
     parts = [part.strip() for part in raw.splitlines()[0].split(",")]
@@ -141,7 +146,9 @@ def _probe_nic() -> str:
 
 
 def _probe_pcie_topology() -> str:
-    raw = _run_command(["nvidia-smi", "--query-gpu=pci.bus_id", "--format=csv,noheader"])
+    raw = _run_command(
+        ["nvidia-smi", "--query-gpu=pci.bus_id", "--format=csv,noheader"]
+    )
     if not raw:
         return _UNKNOWN
     bus_id = raw.splitlines()[0].strip()
@@ -156,7 +163,9 @@ def _query_engine_version(engine_endpoint: str) -> str:
     if not endpoint:
         return _UNKNOWN
     try:
-        with urllib.request.urlopen(f"{endpoint}/version", timeout=_CMD_TIMEOUT_S) as resp:
+        with urllib.request.urlopen(
+            f"{endpoint}/version", timeout=_CMD_TIMEOUT_S
+        ) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
     except (OSError, ValueError):
         return _UNKNOWN

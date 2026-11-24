@@ -90,7 +90,7 @@ func TestSessionBodyReplayAfterHeaderHit(t *testing.T) {
 			t.Fatalf("GetBody #%d: %v", i, err)
 		}
 		raw, err := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		if err != nil {
 			t.Fatalf("read GetBody #%d: %v", i, err)
 		}
@@ -130,7 +130,7 @@ func TestSessionBodyParseErrorKeepsCache(t *testing.T) {
 		t.Fatalf("GetBody: %v", err)
 	}
 	raw, err := io.ReadAll(rc)
-	rc.Close()
+	_ = rc.Close()
 	if err != nil {
 		t.Fatalf("read GetBody: %v", err)
 	}

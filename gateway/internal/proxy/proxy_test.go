@@ -111,7 +111,7 @@ func doRequest(t *testing.T, gwURL, method, path, body string, header http.Heade
 	if err != nil {
 		t.Fatalf("%s %s: %v", method, path, err)
 	}
-	t.Cleanup(func() { resp.Body.Close() })
+	t.Cleanup(func() { _ = resp.Body.Close() })
 	return resp
 }
 

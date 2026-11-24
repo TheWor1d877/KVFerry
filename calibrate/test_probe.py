@@ -5,51 +5,76 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 import config
 import fetchbench
 import probe
-import recompbench
+import pytest
 import recalib
+import recompbench
 import tables
 
 _PATH = "dram"
-_OK_S = 0.03125      # 64 MiB / 2 GiB/s：与表值一致，不越阈
+_OK_S = 0.03125  # 64 MiB / 2 GiB/s：与表值一致，不越阈
 _OVER_S = 0.0390625  # 偏离表值 25%，超过默认阈值 20%
 
 
 def _prov() -> config.Provenance:
     return config.Provenance(
-        gpu_name="NVIDIA A100", nic="eth0", pcie_topology="17:00.0",
-        driver_version="550.54", engine_version="0.9.2",
-        model="qwen3-4b", kv_precision="fp16", block_tokens=16)
+        gpu_name="NVIDIA A100",
+        nic="eth0",
+        pcie_topology="17:00.0",
+        driver_version="550.54",
+        engine_version="0.9.2",
+        model="qwen3-4b",
+        kv_precision="fp16",
+        block_tokens=16,
+    )
 
 
 def _make_fit(bandwidth: float = 2.0) -> tables.PathFit:
     return tables.PathFit(
-        bandwidth_gib_s_median=bandwidth, bandwidth_gib_s_p25=bandwidth * 0.9,
-        fixed_cost_s_median=0.0, fixed_cost_s_p25=0.0,
-        min_block_mib=8, min_block_s_median=5e-4, min_block_s_p25=5.5e-4)
+        bandwidth_gib_s_median=bandwidth,
+        bandwidth_gib_s_p25=bandwidth * 0.9,
+        fixed_cost_s_median=0.0,
+        fixed_cost_s_p25=0.0,
+        min_block_mib=8,
+        min_block_s_median=5e-4,
+        min_block_s_p25=5.5e-4,
+    )
 
 
 def _make_tables() -> tables.CostTables:
-    cells = {tokens: tables.RecomputeCell(per_token_s_median=1e-5, per_token_s_p25=1e-5)
-             for tokens in (1024, 4096, 16384, 32768, 65536)}
+    cells = {
+        tokens: tables.RecomputeCell(per_token_s_median=1e-5, per_token_s_p25=1e-5)
+        for tokens in (1024, 4096, 16384, 32768, 65536)
+    }
     return tables.CostTables(
-        version="", provenance=_prov(), calibrated_at="2026-01-01T00:00:00Z",
+        version="",
+        provenance=_prov(),
+        calibrated_at="2026-01-01T00:00:00Z",
         t1={path: _make_fit() for path in fetchbench.PATH_BLOCK_LADDERS},
         t2={mode: dict(cells) for mode in recompbench.RECOMPUTE_MODES},
-        t3_forward={}, t3_reverse={}, t4={}, tuned={})
+        t3_forward={},
+        t3_reverse={},
+        t4={},
+        tuned={},
+    )
 
 
 def _make_cfg(tmp_path, **overrides) -> config.RuntimeConfig:
-    values = dict(probe_interval_s=30, probe_block_mib=64, drift_threshold_pct=20.0,
-                  drift_trigger_consecutive=3, drift_sample_min=100,
-                  drift_window_min_s=60, drift_window_max_s=1800)
+    values = dict(
+        probe_interval_s=30,
+        probe_block_mib=64,
+        drift_threshold_pct=20.0,
+        drift_trigger_consecutive=3,
+        drift_sample_min=100,
+        drift_window_min_s=60,
+        drift_window_max_s=1800,
+    )
     values.update(overrides)
-    return config.RuntimeConfig(table_root=tmp_path / "tables",
-                                declared_version="unknown", **values)
+    return config.RuntimeConfig(
+        table_root=tmp_path / "tables", declared_version="unknown", **values
+    )
 
 
 def _patch_measure(monkeypatch, elapsed_s, calls):
@@ -58,14 +83,22 @@ def _patch_measure(monkeypatch, elapsed_s, calls):
     def fake_measure(path, block_mib, reps=fetchbench.MEASURE_REPS):
         calls.append(path)
         value = next(seq) if seq is not None else elapsed_s
-        return fetchbench.BlockSample(path=path, block_mib=block_mib,
-                                      elapsed_s=(value,) * reps)
+        return fetchbench.BlockSample(
+            path=path, block_mib=block_mib, elapsed_s=(value,) * reps
+        )
 
     monkeypatch.setattr(fetchbench, "measure_block", fake_measure)
 
 
-def _make_loop(tmp_path, monkeypatch, elapsed_s, measure_calls,
-               recalib_results=None, recalib_calls=None, cfg_overrides=None):
+def _make_loop(
+    tmp_path,
+    monkeypatch,
+    elapsed_s,
+    measure_calls,
+    recalib_results=None,
+    recalib_calls=None,
+    cfg_overrides=None,
+):
     """落基线表、注入假测量与假重标，返回探针循环与基线目录。"""
     root = tmp_path / "tables"
     baseline = tables.write_version(root, _make_tables())
@@ -88,8 +121,9 @@ def _events(capsys):
 def test_three_over_threshold_windows_expire_path(tmp_path, monkeypatch, capsys):
     measure_calls: list[str] = []
     recalib_calls: list[tuple] = []
-    loop, root, baseline = _make_loop(tmp_path, monkeypatch, _OVER_S,
-                                      measure_calls, [], recalib_calls)
+    loop, root, baseline = _make_loop(
+        tmp_path, monkeypatch, _OVER_S, measure_calls, [], recalib_calls
+    )
     loop._check_path(_PATH)
     loop._check_path(_PATH)
     assert loop._consecutive[_PATH] == 2  # 越阈计数累加（D33）
@@ -118,8 +152,9 @@ def test_clear_window_resets_counter(tmp_path, monkeypatch):
     measure_calls: list[str] = []
     recalib_calls: list[tuple] = []
     sequence = [_OVER_S, _OVER_S, _OK_S, _OVER_S, _OVER_S]
-    loop, _, _ = _make_loop(tmp_path, monkeypatch, sequence,
-                            measure_calls, [], recalib_calls)
+    loop, _, _ = _make_loop(
+        tmp_path, monkeypatch, sequence, measure_calls, [], recalib_calls
+    )
     for _ in range(5):
         loop._check_path(_PATH)
     # 第三窗不越阈把连续计数清零，后续两窗只攒回 2（D33）
@@ -130,8 +165,14 @@ def test_clear_window_resets_counter(tmp_path, monkeypatch):
 def test_expired_state_skips_probe_and_retries(tmp_path, monkeypatch):
     measure_calls: list[str] = []
     recalib_calls: list[tuple] = []
-    loop, _, _ = _make_loop(tmp_path, monkeypatch, _OVER_S, measure_calls,
-                            [False, False, True], recalib_calls)
+    loop, _, _ = _make_loop(
+        tmp_path,
+        monkeypatch,
+        _OVER_S,
+        measure_calls,
+        [False, False, True],
+        recalib_calls,
+    )
     for _ in range(3):
         loop._check_path(_PATH)  # 连续三窗越阈 → 过期，重标第一次失败
     assert len(measure_calls) == 3
@@ -183,8 +224,15 @@ def test_probe_once_expected_uses_median_formula(tmp_path, monkeypatch):
 def test_probe_once_scales_min_block_below_ladder(tmp_path, monkeypatch):
     measure_calls: list[str] = []
     recalib_calls: list[tuple] = []
-    loop, _, _ = _make_loop(tmp_path, monkeypatch, 3.125e-4, measure_calls,
-                            [], recalib_calls, cfg_overrides={"probe_block_mib": 4})
+    loop, _, _ = _make_loop(
+        tmp_path,
+        monkeypatch,
+        3.125e-4,
+        measure_calls,
+        [],
+        recalib_calls,
+        cfg_overrides={"probe_block_mib": 4},
+    )
     # 4 MiB 小于最小档 8 MiB：表值按最小档直测耗时折算（D33）
     assert loop.probe_once(_PATH, loop._tables) is True
     expected, observed, deviation_pct = loop._last[_PATH]
@@ -195,8 +243,9 @@ def test_probe_once_scales_min_block_below_ladder(tmp_path, monkeypatch):
 def test_run_ticks_each_path_per_interval(tmp_path, monkeypatch):
     measure_calls: list[str] = []
     recalib_calls: list[tuple] = []
-    loop, _, _ = _make_loop(tmp_path, monkeypatch, _OK_S, measure_calls,
-                            [], recalib_calls)
+    loop, _, _ = _make_loop(
+        tmp_path, monkeypatch, _OK_S, measure_calls, [], recalib_calls
+    )
     ticks: list[str] = []
     monkeypatch.setattr(loop, "_check_path", lambda path: ticks.append(path))
     sleeps: list[float] = []

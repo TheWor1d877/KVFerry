@@ -7,13 +7,12 @@ import json
 import threading
 import time
 
-import pytest
-
 import config
-import recompbench
-import recalib
-import tables
 import passive
+import pytest
+import recalib
+import recompbench
+import tables
 
 
 class _Clock:
@@ -39,27 +38,49 @@ class _FakeEngine:
 
 def _prov() -> config.Provenance:
     return config.Provenance(
-        gpu_name="NVIDIA A100", nic="eth0", pcie_topology="17:00.0",
-        driver_version="550.54", engine_version="0.9.2",
-        model="qwen3-4b", kv_precision="fp16", block_tokens=16)
+        gpu_name="NVIDIA A100",
+        nic="eth0",
+        pcie_topology="17:00.0",
+        driver_version="550.54",
+        engine_version="0.9.2",
+        model="qwen3-4b",
+        kv_precision="fp16",
+        block_tokens=16,
+    )
 
 
 def _make_tables() -> tables.CostTables:
-    cells = {tokens: tables.RecomputeCell(per_token_s_median=1e-5, per_token_s_p25=1e-5)
-             for tokens in (1024, 4096, 16384, 32768, 65536)}
+    cells = {
+        tokens: tables.RecomputeCell(per_token_s_median=1e-5, per_token_s_p25=1e-5)
+        for tokens in (1024, 4096, 16384, 32768, 65536)
+    }
     return tables.CostTables(
-        version="", provenance=_prov(), calibrated_at="2026-01-01T00:00:00Z",
-        t1={}, t2={mode: dict(cells) for mode in recompbench.RECOMPUTE_MODES},
-        t3_forward={}, t3_reverse={}, t4={}, tuned={})
+        version="",
+        provenance=_prov(),
+        calibrated_at="2026-01-01T00:00:00Z",
+        t1={},
+        t2={mode: dict(cells) for mode in recompbench.RECOMPUTE_MODES},
+        t3_forward={},
+        t3_reverse={},
+        t4={},
+        tuned={},
+    )
 
 
 def _make_cfg(tmp_path, **overrides) -> config.RuntimeConfig:
-    values = dict(probe_interval_s=30, probe_block_mib=64, drift_threshold_pct=20.0,
-                  drift_trigger_consecutive=3, drift_sample_min=2,
-                  drift_window_min_s=60, drift_window_max_s=1800)
+    values = dict(
+        probe_interval_s=30,
+        probe_block_mib=64,
+        drift_threshold_pct=20.0,
+        drift_trigger_consecutive=3,
+        drift_sample_min=2,
+        drift_window_min_s=60,
+        drift_window_max_s=1800,
+    )
     values.update(overrides)
-    return config.RuntimeConfig(table_root=tmp_path / "tables",
-                                declared_version="unknown", **values)
+    return config.RuntimeConfig(
+        table_root=tmp_path / "tables", declared_version="unknown", **values
+    )
 
 
 def _make_agg(tmp_path, monkeypatch, clock, **overrides):
@@ -67,16 +88,18 @@ def _make_agg(tmp_path, monkeypatch, clock, **overrides):
     baseline = tables.write_version(root, _make_tables())
     monkeypatch.setattr(passive, "_now", clock)
     cfg = _make_cfg(tmp_path, **overrides)
-    agg = passive.PassiveAggregator(cfg, tables.CostTables.load(root, "unknown"),
-                                    _FakeEngine())
+    agg = passive.PassiveAggregator(
+        cfg, tables.CostTables.load(root, "unknown"), _FakeEngine()
+    )
     return agg, root, baseline
 
 
-def _sample(tokens: int, per_token: float = 1e-5,
-            infight: int = 0) -> passive.PrefillSample:
-    return passive.PrefillSample(computed_tokens=tokens,
-                                 segment_s=tokens * per_token,
-                                 infight_blocks=infight)
+def _sample(
+    tokens: int, per_token: float = 1e-5, infight: int = 0
+) -> passive.PrefillSample:
+    return passive.PrefillSample(
+        computed_tokens=tokens, segment_s=tokens * per_token, infight_blocks=infight
+    )
 
 
 def _wait(condition, timeout_s: float = 5.0) -> None:
@@ -105,11 +128,11 @@ def test_length_mapping_nearest_rung(tmp_path, monkeypatch):
     clock = _Clock()
     agg, _, _ = _make_agg(tmp_path, monkeypatch, clock)
     assert agg._map_length(1024) == 1024
-    assert agg._map_length(2048) == 1024   # 2048 离 1024 更近
-    assert agg._map_length(2560) == 4096   # 两档等距取更高档（D34）
+    assert agg._map_length(2048) == 1024  # 2048 离 1024 更近
+    assert agg._map_length(2560) == 4096  # 两档等距取更高档（D34）
     assert agg._map_length(3000) == 4096
     assert agg._map_length(70000) == 65536  # 超过 64k 映射到直测档
-    assert agg._map_length(100) == 1024     # 低于最小档取最小档
+    assert agg._map_length(100) == 1024  # 低于最小档取最小档
 
 
 def test_window_aggregates_after_min_duration_and_samples(tmp_path, monkeypatch):

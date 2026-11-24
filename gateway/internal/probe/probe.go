@@ -106,7 +106,7 @@ func (m *Manager) probe(ctx context.Context, addr string) bool {
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, resp.Body)
 
 	return resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices
