@@ -1,0 +1,6 @@
+target-version = "py312"
+
+[lint]
+# L1 宽松起步：默认真错误集 + bugbear + import 排序 + 旧语法升级
+# 后续收紧规划见 .github/PIPELINE.md
+select = ["E4", "E7", "E9", "F", "B", "I", "UP"]

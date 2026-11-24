@@ -1,0 +1,99 @@
+# L1 快速 CI：lint + build + 单测。
+# 分支保护的 required check 只挂本文件的 `gate` job（check 名：CI / gate）。
+# L2（push main 全量 e2e/smoke）与 L3（tag 门禁 + release）的设计与决策记录见 .github/PIPELINE.md
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      go: ${{ steps.filter.outputs.go == 'true' || steps.filter.outputs.ci == 'true' }}
+      python: ${{ steps.filter.outputs.python == 'true' || steps.filter.outputs.ci == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            go:
+              - 'gateway/**'
+            python:
+              - 'calibrate/**'
+              - 'ruff.toml'
+            ci:
+              - '.github/workflows/ci.yml'
+
+  go:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: gateway/go.mod
+      - name: Build
+        run: go build ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: gateway
+          version: v2.15.0
+      - name: Test
+        run: go test -race ./...
+
+  python:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install tools
+        run: pip install ruff==0.17.6 pytest==9.2.0
+      - name: Lint
+        run: ruff check calibrate
+      - name: Format check
+        run: ruff format --check calibrate
+      - name: Test
+        run: pytest calibrate -q
+
+  gate:
+    needs: [changes, go, python]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 汇总门禁（skip 视为通过，failure/cancelled 视为失败）
+        run: |
+          echo "changes=${{ needs.changes.result }} go=${{ needs.go.result }} python=${{ needs.python.result }}"
+          for r in "${{ needs.changes.result }}" "${{ needs.go.result }}" "${{ needs.python.result }}"; do
+            if [[ "$r" == failure || "$r" == cancelled ]]; then
+              echo "GATE_FAIL: $r"
+              exit 1
+            fi
+          done
+          echo "GATE_OK"

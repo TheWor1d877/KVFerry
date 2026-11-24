@@ -1,0 +1,6 @@
+version: "2"
+
+linters:
+  # standard 默认集：errcheck / govet / ineffassign / staticcheck / unused
+  # 宽松起步（L1），后续收紧规划见 .github/PIPELINE.md
+  default: standard
