@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="780" viewBox="0 0 1560 780" role="img" aria-label="KVFerry 代价表总览" font-family="'Noto Sans CJK SC','PingFang SC','Microsoft YaHei','Inter',sans-serif">
+  <defs>
+    <marker id="m334155" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#334155"/></marker>
+    <marker id="m4F46E5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#4F46E5"/></marker>
+    <marker id="m7C3AED" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#7C3AED"/></marker>
+    <marker id="m0D9488" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0D9488"/></marker>
+    <marker id="m2563EB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2563EB"/></marker>
+    <style>
+      text{font-synthesis:none;}
+      .tt{font-size:14px;font-weight:700;fill:#0F172A;}
+      .ts{font-size:10px;font-weight:500;fill:#64748B;}
+      .t{font-size:13px;font-weight:700;fill:#0F172A;}
+      .b{font-size:11.5px;font-weight:500;fill:#64748B;}
+      .s{font-size:10.5px;font-weight:500;fill:#64748B;}
+      .lab{font-size:11px;font-weight:600;fill:#334155;paint-order:stroke;stroke:#FFFFFF;stroke-width:3.4px;stroke-linejoin:round;}
+      .lab-b{font-size:11px;font-weight:600;fill:#2563EB;paint-order:stroke;stroke:#FFFFFF;stroke-width:3.4px;stroke-linejoin:round;}
+    </style>
+  </defs>
+
+  <rect width="1560" height="780" fill="#FFFFFF"/>
+
+  <!-- 分区带 -->
+  <rect x="36" y="36" width="470" height="570" rx="13" fill="#EEF0FF" stroke="#C7D2FE" stroke-width="1.3"/>
+  <rect x="52" y="50" width="4" height="15" rx="2" fill="#4F46E5"/>
+  <text x="66" y="62" class="tt">① 离线标定</text>
+  <text x="66" y="80" class="ts">空闲机器 · 一条命令跑完四张表</text>
+  <rect x="530" y="36" width="380" height="570" rx="13" fill="#F6F2FE" stroke="#DDD0F5" stroke-width="1.3"/>
+  <rect x="546" y="50" width="4" height="15" rx="2" fill="#7C3AED"/>
+  <text x="560" y="62" class="tt">② 表库</text>
+  <text x="560" y="80" class="ts">带版本与口径 · 离线产出</text>
+  <rect x="934" y="36" width="590" height="570" rx="13" fill="#ECFDF5" stroke="#A7F3D0" stroke-width="1.3"/>
+  <rect x="950" y="50" width="4" height="15" rx="2" fill="#0D9488"/>
+  <text x="964" y="62" class="tt">③ 在线消费</text>
+  <text x="964" y="80" class="ts">每请求查表 · 快照秒级刷新</text>
+  <rect x="36" y="630" width="1488" height="114" rx="13" fill="#F0F5FE" stroke="#BFDBFE" stroke-width="1.3"/>
+  <rect x="52" y="644" width="4" height="15" rx="2" fill="#2563EB"/>
+  <text x="66" y="656" class="tt">④ 降级与恢复</text>
+  <text x="66" y="674" class="ts">退回重算 · 局部重标 · 换版回切</text>
+
+  <!-- 区① -->
+  <g>
+    <rect x="60" y="112" width="422" height="104" rx="10" fill="#FFFFFF" stroke="#4F46E5" stroke-width="1.2"/>
+    <text x="78" y="138" class="t">传输探针</text>
+    <text x="78" y="162" class="b">异步拷贝 H2D</text>
+    <text x="78" y="184" class="b">NVMe 直读与 pinned 中转</text>
+    <text x="78" y="206" class="b">TCP loopback</text>
+  </g>
+  <g>
+    <rect x="60" y="232" width="422" height="104" rx="10" fill="#FFFFFF" stroke="#4F46E5" stroke-width="1.2"/>
+    <text x="78" y="258" class="t">prefill 微基准</text>
+    <text x="78" y="282" class="b">输入长度 1k / 4k / 16k / 32k · 64k 直测</text>
+    <text x="78" y="304" class="b">纯 prefill 与混批两口径</text>
+    <text x="78" y="326" class="b">每 token 时间按计算 token 数折算</text>
+  </g>
+  <g>
+    <rect x="60" y="352" width="422" height="118" rx="10" fill="#FFFFFF" stroke="#4F46E5" stroke-width="1.2"/>
+    <text x="78" y="378" class="t">干扰对测</text>
+    <text x="78" y="402" class="b">正向：decode 批 × prefill 段量带宽折扣</text>
+    <text x="78" y="424" class="b">反向：在飞块数 × decode 批记 step 增幅</text>
+    <text x="78" y="446" class="b">计算与传输两侧同时起负载</text>
+  </g>
+  <g>
+    <rect x="60" y="486" width="422" height="88" rx="10" fill="#FFFFFF" stroke="#4F46E5" stroke-width="1.2"/>
+    <text x="78" y="512" class="t">参数扫描</text>
+    <text x="78" y="536" class="b">4.x 轨迹回放</text>
+    <text x="78" y="558" class="b">迟滞 · 闸门 · 并发上限三定值</text>
+  </g>
+
+  <!-- 区② -->
+  <g>
+    <rect x="554" y="112" width="332" height="96" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.2"/>
+    <text x="572" y="138" class="t">T1 带宽表</text>
+    <text x="572" y="162" class="b">路径 × 字节档</text>
+    <text x="572" y="184" class="b">每格两数：冷态上限与固定开销</text>
+  </g>
+  <g>
+    <rect x="554" y="224" width="332" height="76" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.2"/>
+    <text x="572" y="250" class="t">T2 重算表</text>
+    <text x="572" y="274" class="b">长度 × 批口径 · 每 token 时间</text>
+  </g>
+  <g>
+    <rect x="554" y="316" width="332" height="104" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.2"/>
+    <text x="572" y="342" class="t">T3 干扰表</text>
+    <text x="572" y="366" class="b">正向折扣子表</text>
+    <text x="572" y="388" class="b">反向增幅子表</text>
+  </g>
+  <g>
+    <rect x="554" y="436" width="332" height="68" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.2"/>
+    <text x="572" y="462" class="t">T4 开销表</text>
+    <text x="572" y="486" class="b">查表 + RPC 耗时</text>
+  </g>
+  <g>
+    <rect x="554" y="520" width="332" height="54" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.2"/>
+    <text x="572" y="546" class="t">P1–P3 定值</text>
+    <text x="572" y="570" class="b">迟滞 · 闸门 · 并发</text>
+  </g>
+
+  <!-- 区③ -->
+  <g>
+    <rect x="958" y="112" width="240" height="118" rx="10" fill="#FFFFFF" stroke="#0D9488" stroke-width="1.2"/>
+    <text x="976" y="138" class="t">决策算账</text>
+    <text x="976" y="162" class="b">取回账与重算账</text>
+    <text x="976" y="184" class="b">比较输出取回或重算</text>
+    <text x="976" y="206" class="b">带决策记录</text>
+  </g>
+  <g>
+    <rect x="958" y="254" width="240" height="96" rx="10" fill="#FFFFFF" stroke="#0D9488" stroke-width="1.2"/>
+    <text x="976" y="280" class="t">取回执行</text>
+    <text x="976" y="304" class="b">按并发上限分块</text>
+    <text x="976" y="326" class="b">与计算重叠</text>
+  </g>
+  <g>
+    <rect x="1218" y="112" width="282" height="150" rx="10" fill="#FFFFFF" stroke="#0D9488" stroke-width="1.2"/>
+    <text x="1236" y="138" class="t">运行时快照</text>
+    <text x="1236" y="162" class="b">在途占用 · 排队延迟</text>
+    <text x="1236" y="184" class="b">decode 批 · SM 利用率</text>
+    <text x="1236" y="206" class="b">显存余量 · KV 水位</text>
+    <text x="1236" y="228" class="b">秒级或每 N 请求刷新</text>
+  </g>
+  <g>
+    <rect x="1218" y="286" width="282" height="164" rx="10" fill="#FFFFFF" stroke="#0D9488" stroke-width="1.2"/>
+    <text x="1236" y="312" class="t">漂移监测</text>
+    <text x="1236" y="336" class="b">主动探针：30s 传 64MiB</text>
+    <text x="1236" y="358" class="b">被动统计：按样本聚合</text>
+    <text x="1236" y="380" class="b">连续三次越阈判表过期</text>
+  </g>
+
+  <!-- 连线 -->
+  <path d="M506 300 L530 300" fill="none" stroke="#7C3AED" stroke-width="1.5" marker-end="url(#m7C3AED)"/>
+  <text x="518" y="290" class="lab" text-anchor="middle">产出</text>
+  <path d="M910 300 L934 300" fill="none" stroke="#0D9488" stroke-width="1.5" marker-end="url(#m0D9488)"/>
+  <text x="922" y="290" class="lab" text-anchor="middle">版本</text>
+  <path d="M1218 180 L1198 180" fill="none" stroke="#0D9488" stroke-width="1.5" marker-end="url(#m0D9488)"/>
+  <text x="1208" y="170" class="lab" text-anchor="middle">坐标</text>
+  <path d="M1078 230 L1078 254" fill="none" stroke="#0D9488" stroke-width="1.5" marker-end="url(#m0D9488)"/>
+  <text x="1088" y="246" class="lab" text-anchor="middle">指令</text>
+  <path d="M1359 450 L1359 612 L760 612 L760 606" fill="none" stroke="#2563EB" stroke-width="1.4" stroke-dasharray="6 5" marker-end="url(#m2563EB)"/>
+  <text x="1050" y="604" class="lab" text-anchor="middle">连续三次越阈后局部重标</text>
+
+  <!-- 区④ -->
+  <g>
+    <rect x="60" y="668" width="700" height="58" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.2"/>
+    <text x="78" y="694" class="t">降级动作</text>
+    <text x="78" y="718" class="b">退回重算 · 局部重标探针覆盖行 · 换版回切</text>
+    <text x="78" y="740" class="b">SLO 按重算基线衡量 · 用户侧不报不可用</text>
+  </g>
+  <g>
+    <rect x="800" y="668" width="600" height="58" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.2"/>
+    <text x="818" y="694" class="t">介质故障</text>
+    <text x="818" y="718" class="b">存储侧错误通道上报</text>
+    <text x="818" y="740" class="b">该路径行禁用 · 运维告警</text>
+  </g>
+</svg>

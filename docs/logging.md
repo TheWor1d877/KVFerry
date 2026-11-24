@@ -10,13 +10,13 @@
 
 log/slog 的 JSONHandler 输出到 stdout，五处打点：
 
-| 打点 | 级别 | 字段 |
-|---|---|---|
-| 启动 | info | listen、upstreams |
-| 摘除 | warn | node、failures |
-| 恢复 | info | node |
-| 改路 | info | request_id、session、from、to、elapsed_ms |
-| 请求失败 | error | request_id、error |
+| 打点     | 级别  | 字段                                      |
+|----------|-------|-------------------------------------------|
+| 启动     | info  | listen、upstreams                         |
+| 摘除     | warn  | node、failures                            |
+| 恢复     | info  | node                                      |
+| 改路     | info  | request_id、session、from、to、elapsed_ms |
+| 请求失败 | error | request_id、error                         |
 
 `request_id` 在请求未带 `X-Request-Id` 时为空串；`from` 与 `to` 是副本地址；`failures` 是触发摘除时的连续失败次数。
 
@@ -25,3 +25,7 @@ log/slog 的 JSONHandler 输出到 stdout，五处打点：
 ## 实验装置
 
 装置侧当前无统一进程日志：bench/loadgen.py 的 RoundLogger 按轮把轮次日志写进当轮目录（runs 层），轮次日志即观测记录，随轮落盘、不入库 stdout。其余 bench 模块的日志随实现补进实验装置一节。
+
+## 代价表
+
+事件日志按 D35 输出：stdout JSON 行，component 固定取 cost，无级别字段，按 event 字段区分 expire、recalibrate、degrade 三类。打点三处：探针进程判定路径行过期时打 expire 与 degrade start；重标执行器打 recalibrate start 与 end，end 带 result（success 或 fail）；被动统计聚合器判定长度档过期时打 expire 与 degrade start。degrade end 在重标成功落盘后随 recalibrate end 打，重标失败时降级窗口保持开启、不补 degrade end。公共字段 ts_ms、source、table、target；expire 另带 expected、observed、deviation_pct，分别记表值、实测值与偏差百分比。事件不含请求正文、token 内容与租户信息，路径名与长度档为非敏感字段，无需脱敏。标定命令的进度与失败原因写 stderr，不进事件流；日志组件按 stdout JSON 行对接事件流。
