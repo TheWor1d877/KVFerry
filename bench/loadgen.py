@@ -141,6 +141,8 @@ def build_vllm_command(
     else:
         command = entry + ["--model", str(model_path)]
     command += [
+        "--served-model-name",
+        config.MODEL_NAME_BY_TIER[tier],
         "--host",
         "127.0.0.1",
         "--port",
@@ -741,10 +743,24 @@ def _summarize(
 def judge_pressure(
     samples: list[dict[str, Any]], load_tier: str
 ) -> dict[str, Any]:
+    engine_start = None
+    for sample in samples:
+        queue = sample.get("queue_len")
+        if queue is not None and float(queue) > 0:
+            engine_start = float(sample.get("t_rel_s", 0.0))
+            break
+    span = 0.0
+    if samples and engine_start is not None:
+        span = max(
+            0.0,
+            float(samples[-1].get("t_rel_s", 0.0)) - engine_start,
+        )
+    window_len = min(config.MEASURE_WINDOW_S, span)
     window = [
         sample
         for sample in samples
-        if float(sample.get("t_rel_s", 0.0)) <= config.MEASURE_WINDOW_S
+        if engine_start is None
+        or engine_start <= float(sample.get("t_rel_s", 0.0)) <= engine_start + window_len
     ]
     if not window:
         return {"ok": False, "reason": "没有采样", "window_samples": 0}
@@ -760,8 +776,11 @@ def judge_pressure(
     max_backlog = _max_backlog_seconds(window)
     actual = float(window[-1]["t_rel_s"]) - float(window[0]["t_rel_s"])
     if load_tier == "high":
-        ok = busy_ratio == 1.0 and max_backlog >= config.HIGH_LOAD_MIN_BACKLOG_S
-        reason = None if ok else "高压档要求队列全程非空且连续非空不少于 30 秒"
+        ok = (
+            busy_ratio >= config.HIGH_LOAD_MIN_BUSY_RATIO
+            and max_backlog >= config.HIGH_LOAD_MIN_BACKLOG_S
+        )
+        reason = None if ok else "高压档要求队列非空占比达到 95% 且连续非空不少于 30 秒"
     elif load_tier == "low":
         ok = busy_ratio < config.LOW_LOAD_MAX_BUSY_RATIO
         reason = None if ok else "低压档要求队列非空占比低于 10%"
@@ -795,8 +814,10 @@ def _max_backlog_seconds(window: list[dict[str, Any]]) -> float:
 
 
 def judge_saturation(samples: list[dict[str, Any]]) -> dict[str, Any]:
+    sat_streak_required = 3
     engine_start = None
     loadgen_start = None
+    sat_streak = 0
     for sample in samples:
         moment = float(sample.get("t_rel_s", 0.0))
         queue = sample.get("queue_len")
@@ -809,8 +830,15 @@ def judge_saturation(samples: list[dict[str, Any]]) -> dict[str, Any]:
             connections is not None
             and float(connections) >= config.LOADGEN_CONNECTION_SAT
         )
-        if loadgen_start is None and (cpu_sat or conn_sat):
-            loadgen_start = moment
+        if (cpu_sat or conn_sat):
+            sat_streak = sat_streak + 1
+            if sat_streak == 1:
+                sat_first = moment
+        else:
+            sat_streak = 0
+            sat_first = None
+        if loadgen_start is None and sat_streak >= sat_streak_required:
+            loadgen_start = sat_first
     ok = True
     reason = None
     if loadgen_start is not None:

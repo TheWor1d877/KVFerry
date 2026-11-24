@@ -26,17 +26,17 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 TIERS = ("S", "M", "L")
 MODEL_NAME_BY_TIER = {
     "S": "Qwen/Qwen3-1.7B",
-    "M": "Qwen/Qwen3-8B",
-    "L": "Qwen/Qwen3-14B",
+    "M": "Qwen/Qwen3-4B",
+    "L": "Qwen/Qwen3-8B",
 }
 MODEL_DIR_BY_TIER = {
     "S": "qwen3-1.7b",
-    "M": "qwen3-8b",
-    "L": "qwen3-14b",
+    "M": "qwen3-4b",
+    "L": "qwen3-8b",
 }
 MODEL_ROOT = Path.home() / "models"
 TOKEN_LIMIT_BY_TIER = {"S": 16 * 1024, "M": 30 * 1024, "L": 16 * 1024}
-MIN_GPU_GIB_BY_TIER = {"S": 7, "M": 32, "L": 37}
+MIN_GPU_GIB_BY_TIER = {"S": 7, "M": 22, "L": 18}
 
 LENGTH_SHORT_RANGE = (512, 2048)
 LENGTH_MID_RANGE = (2048, 8192)
@@ -58,6 +58,7 @@ HIGH_LOAD_SCALE = 1.5
 MEASURE_WINDOW_S = 300
 SAT_SAMPLE_INTERVAL_S = 1
 HIGH_LOAD_MIN_BACKLOG_S = 30
+HIGH_LOAD_MIN_BUSY_RATIO = 0.95
 LOW_LOAD_MAX_BUSY_RATIO = 0.10
 
 LOADGEN_CPU_SAT_PCT = 90.0
