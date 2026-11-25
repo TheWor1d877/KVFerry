@@ -124,7 +124,7 @@
     <rect x="1320" y="380" width="220" height="150" rx="10" fill="#ffffff" stroke="#9ccbbd" stroke-width="1.5"/>
     <rect x="1326" y="392" width="4" height="126" rx="2" fill="#0f766e"/>
     <text x="1344" y="414" class="t" fill="#0f766e">存储节点 ×M</text>
-    <text x="1344" y="446" class="b">DRAM</text>
+    <text x="1344" y="446" class="b">DRAM 写缓冲 · 读缓存（内部）</text>
     <text x="1344" y="470" class="b">NVMe</text>
     <text x="1344" y="494" class="b">远端块服务</text>
   </g>

@@ -18,6 +18,7 @@ import fetchbench
 import interbench
 import recompbench
 import tables
+import writebench
 
 # D38：rpc_s 的探测请求为对取回组件端点的一次取回查询请求（单块查询体），
 # HTTP POST、请求体含单块占位查询字段，发 100 次取中位数；取回组件落地后
@@ -92,6 +93,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         print("T1 传输标定", file=sys.stderr)
         t1 = fetchbench.build_t1(nominal)
+        print("存储写标定", file=sys.stderr)
+        # D39：写列标定紧跟 T1 读标定，同窗口冷态，不依赖引擎写路径；
+        # 写方向标称带宽经 --nominal-file 的 nvme-write 键可选提供
+        write_fit = writebench.build_write_fit(
+            nominal.get(writebench.WRITE_ROW) if nominal else None
+        )
         print("T2 重算标定", file=sys.stderr)
         t2 = recompbench.build_t2(engine)
         print("T3 干扰对测", file=sys.stderr)
@@ -111,6 +118,8 @@ def main(argv: list[str] | None = None) -> int:
             t3_reverse=t3_reverse,
             t4={},
             tuned={},
+            # D39：写上限落 T1 表文件的 t1_write 列组，取回与重算两笔账不用写方向数据
+            t1_write={writebench.WRITE_ROW: write_fit},
         )
         print("T4 开销实测", file=sys.stderr)
         cost_tables.t4 = interbench.measure_decision_overhead(

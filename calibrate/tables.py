@@ -8,7 +8,7 @@ import os
 import re
 import shutil
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -61,6 +61,9 @@ class CostTables:
     ]  # 外层键为在飞块数，内层键为 decode 批，值为增幅
     t4: dict[str, float]  # lookup_s 与 rpc_s 两键
     tuned: dict[str, float]  # hysteresis、gate_pct、concurrency_cap 三键
+    t1_write: dict[str, PathFit] = field(
+        default_factory=dict
+    )  # 写方向列：数据目录顺序写拟合参数与最小档直测值（D39），无写行时为空
 
     @classmethod
     def load(cls, table_root: Path, declared_version: str) -> CostTables:
@@ -108,6 +111,10 @@ class CostTables:
             block_tokens=int(head["block_tokens"]),
         )
         t1 = {path: PathFit(**body) for path, body in head["t1"].items()}
+        # 写方向列缺省空：旧版本目录无 t1_write 键时按空列加载（D39）
+        t1_write = {
+            path: PathFit(**body) for path, body in head.get("t1_write", {}).items()
+        }
         t2 = {
             mode: {int(length): RecomputeCell(**cell) for length, cell in cells.items()}
             for mode, cells in payloads[T2_FILE]["t2"].items()
@@ -136,6 +143,7 @@ class CostTables:
             t3_reverse=t3_reverse,
             t4=t4,
             tuned=tuned,
+            t1_write=t1_write,
         )
 
     # 查询统一走 p25（R16）；返回值不含排队延迟，排队延迟由调用方按快照叠加（R20）
@@ -281,6 +289,9 @@ def _table_payloads(tables: CostTables) -> dict[str, dict[str, object]]:
         T1_FILE: {
             **base,
             "t1": {path: asdict(fit) for path, fit in tables.t1.items()},
+            "t1_write": {
+                path: asdict(fit) for path, fit in tables.t1_write.items()
+            },
         },
         T2_FILE: {
             **base,

@@ -1,6 +1,7 @@
 """命令退出码与落盘的单测（D31）：任一链路失败退出码 1 且不落目录、三重
 检查未过退出码 1、全部通过退出码 0 且五文件与 manifest 齐全——全部经注入
-假客户端与假测量实现，不触真实引擎与硬件；D37 推算与 D38 探测请求形态一并覆盖。"""
+假客户端与假测量实现，不触真实引擎与硬件；D37 推算、D38 探测请求形态与
+D39 写列装配一并覆盖。"""
 
 from __future__ import annotations
 
@@ -13,6 +14,17 @@ import interbench
 import recompbench
 import run
 import tables
+import writebench
+
+_WRITE_FIT = tables.PathFit(
+    bandwidth_gib_s_median=3.0,
+    bandwidth_gib_s_p25=2.8,
+    fixed_cost_s_median=0.0,
+    fixed_cost_s_p25=0.0,
+    min_block_mib=8,
+    min_block_s_median=3e-3,
+    min_block_s_p25=3.2e-3,
+)
 
 
 def _prov() -> config.Provenance:
@@ -48,6 +60,8 @@ def _patch_chain(monkeypatch, fail: str | None = None) -> config.Provenance:
         return {"nvme-direct": fit, "dram": fit}
 
     monkeypatch.setattr(fetchbench, "build_t1", build_t1)
+    # D39：写列标定经注入的假拟合替换，不触真实写盘
+    monkeypatch.setattr(writebench, "build_write_fit", lambda nominal=None: _WRITE_FIT)
 
     def build_t2(engine):
         if fail == "t2":
@@ -143,6 +157,8 @@ def test_full_run_exit_0_writes_version_dir(tmp_path, monkeypatch):
     tables.verify_dir(final, final.name)
     loaded = tables.CostTables.load(root, final.name)
     assert loaded.t4 == {"lookup_s": 1e-6, "rpc_s": 2e-4}
+    # 写列装配进 t1_write，键为数据目录顺序写行（D39）
+    assert loaded.t1_write == {"nvme-write": _WRITE_FIT}
     assert set(loaded.tuned) == {"hysteresis", "gate_pct", "concurrency_cap"}
     assert loaded.provenance == provenance
     # 装配生效：rpc_s 探测函数替换为 D38 形态，重放 KV 字节按 D37 取值
