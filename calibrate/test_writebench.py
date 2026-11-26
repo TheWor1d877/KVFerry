@@ -27,9 +27,7 @@ def _seq(center: float, spread: float) -> tuple[float, ...]:
     )
 
 
-def _write_sample(
-    block_mib: int, seq: tuple[float, ...]
-) -> fetchbench.BlockSample:
+def _write_sample(block_mib: int, seq: tuple[float, ...]) -> fetchbench.BlockSample:
     return fetchbench.BlockSample(
         path=writebench.WRITE_ROW, block_mib=block_mib, elapsed_s=seq
     )
@@ -60,7 +58,9 @@ def test_build_write_fit_ladder_and_fit(monkeypatch):
     assert fit.fixed_cost_s_median == pytest.approx(0.02, abs=1e-9)
     assert fit.min_block_mib == 8
     assert fit.min_block_s_median == pytest.approx(_linear(8), rel=1e-9)
-    assert fit.min_block_s_p25 == pytest.approx(_linear(8) - _linear(8) * 0.002, rel=1e-9)
+    assert fit.min_block_s_p25 == pytest.approx(
+        _linear(8) - _linear(8) * 0.002, rel=1e-9
+    )
 
 
 def test_build_write_fit_check_fail_raises(monkeypatch):

@@ -289,9 +289,7 @@ def _table_payloads(tables: CostTables) -> dict[str, dict[str, object]]:
         T1_FILE: {
             **base,
             "t1": {path: asdict(fit) for path, fit in tables.t1.items()},
-            "t1_write": {
-                path: asdict(fit) for path, fit in tables.t1_write.items()
-            },
+            "t1_write": {path: asdict(fit) for path, fit in tables.t1_write.items()},
         },
         T2_FILE: {
             **base,
