@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package kvferry.storage.v1;
+
+option go_package = "github.com/TheWor1d877/KVFerry/storage/api";
+
+// KV 口径四项，语义见 D44：块字节、KV 精度、每 token 字节数、对齐修正。
+message KVSpec {
+  int64 block_bytes = 1;
+  string kv_precision = 2;
+  int64 bytes_per_token = 3;
+  int64 alignment_pad = 4;
+}
+
+// D40
+message PutBlockRequest {
+  string node_id = 1;
+  string block_hash = 2;
+  KVSpec spec = 3;
+  bytes block_data = 4;
+  bool pin = 5;
+  int64 pin_ttl_s = 6;
+}
+
+// D40
+message PutBlockResponse {
+  int64 segment_seq = 1;
+  bool is_new_write = 2;
+}
+
+// D40
+message GetBlockRequest {
+  string block_hash = 1;
+  KVSpec spec = 2;
+}
+
+// D52：bytes 承载块字节，file_descriptor 与 registered_memory 预留置零。
+message GetBlockResponse {
+  bytes block_data = 1;
+  int32 file_descriptor = 2;
+  int64 registered_memory = 3;
+}
+
+// D48：层位取本机或远端。
+enum BlockLayer {
+  BLOCK_LAYER_UNSPECIFIED = 0;
+  BLOCK_LAYER_LOCAL = 1;
+  BLOCK_LAYER_REMOTE = 2;
+}
+
+// D48：清单块条目。
+message BlockEntry {
+  string block_hash = 1;
+  BlockLayer layer = 2;
+  int64 offset = 3;
+  int64 block_bytes = 4;
+}
+
+// D40
+service BlockStore {
+  rpc PutBlock(PutBlockRequest) returns (PutBlockResponse);
+  rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
+}

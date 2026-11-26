@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package kvferry.decision.v1;
+
+import "storage.proto";
+
+option go_package = "github.com/TheWor1d877/KVFerry/storage/api";
+
+// D47：节点事件，kind 取 register、demote、evict、offline、oversized；seq 为节点内单调递增序号。
+message StorageEvent {
+  string kind = 1;
+  string node_id = 2;
+  int64 segment_seq = 3;
+  string block_hash = 4;
+  kvferry.storage.v1.BlockLayer layer = 5;
+  string reason = 6;
+  int64 seq = 7;
+  int64 ts_ms = 8;
+  bool resync = 9;
+}
+
+// D41：事件确认，决策回最高连续确认序号。
+message EventAck {
+  int64 last_confirmed_seq = 1;
+}
+
+// D48：清单块条目。
+message ManifestEntry {
+  string block_hash = 1;
+  kvferry.storage.v1.BlockLayer layer = 2;
+  int64 offset = 3;
+  int64 block_bytes = 4;
+}
+
+// D41、D48：心跳请求，节点报节点编号、容量水位、清单片与分片信息。
+message HeartbeatRequest {
+  string node_id = 1;
+  double capacity_watermark = 2;
+  repeated ManifestEntry entries = 3;
+  int64 shard_index = 4;
+  int64 shard_total = 5;
+}
+
+// D41：pin 变更，决策在心跳响应里下发（R25）。
+message PinChange {
+  string block_hash = 1;
+  bool pinned = 2;
+  int64 pin_ttl_s = 3;
+}
+
+// D41：心跳响应，回 pin 变更与全量重报请求。
+message HeartbeatResponse {
+  repeated PinChange pin_changes = 1;
+  bool full_rereport = 2;
+}
+
+// D41：清单上报请求，节点作为客户端逐片推送段清单。
+message ReportManifestRequest {
+  string node_id = 1;
+  int64 shard_index = 2;
+  int64 shard_total = 3;
+  repeated ManifestEntry entries = 4;
+}
+
+// D41：清单上报响应。
+message ReportManifestResponse {
+  bool accepted = 1;
+}
+
+// D41：决策侧接口，清单上报与事件同向，由节点主动推送（R25）。
+service StorageReporter {
+  rpc StreamEvents(stream StorageEvent) returns (stream EventAck);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc ReportManifest(ReportManifestRequest) returns (ReportManifestResponse);
+}

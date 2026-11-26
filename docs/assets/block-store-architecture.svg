@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1560" height="840" viewBox="0 0 1560 840" role="img" aria-labelledby="title desc" font-family="'Noto Sans CJK SC','Inter',sans-serif">
-  <title id="title">Minimal block store architecture</title>
-  <desc id="desc">Full KV blocks move from engine HBM to a co-located storage node and optionally to remote storage. The decision service maintains the global block index through events and manifests, and retrieved blocks return to HBM.</desc>
+  <title id="title">最小块存储架构</title>
+  <desc id="desc">满块从引擎 HBM 进入同机存储节点，按需写入远端。决策服务通过事件与清单维护全局块索引，命中后块从本机或远端读回 HBM。</desc>
   <defs>
     <marker id="arrow-indigo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#4F46E5"/></marker>
     <marker id="arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0D9488"/></marker>
@@ -9,10 +9,10 @@
     <style>
       text{font-synthesis:none;}
       .zone{font-size:15px;font-weight:700;fill:#0F172A;}
-      .zone-sub{font-size:11px;font-weight:500;fill:#64748B;}
+      .zone-sub{font-size:11.5px;font-weight:500;fill:#64748B;}
       .card-title{font-size:14px;font-weight:700;fill:#0F172A;}
       .card-body{font-size:11.5px;font-weight:500;fill:#64748B;}
-      .label{font-size:11px;font-weight:600;fill:#334155;paint-order:stroke;stroke:#FFFFFF;stroke-width:3.5px;stroke-linejoin:round;}
+      .label{font-size:11.5px;font-weight:600;fill:#334155;paint-order:stroke;stroke:#FFFFFF;stroke-width:3.5px;stroke-linejoin:round;}
       .main{fill:none;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;}
       .structure{fill:none;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;}
       .control{fill:none;stroke:#2563EB;stroke-width:.8;stroke-dasharray:6 5;stroke-linecap:round;stroke-linejoin:round;marker-end:url(#arrow-blue);}
@@ -27,161 +27,158 @@
   <g id="zones">
     <rect x="36" y="36" width="310" height="500" rx="13" fill="#EEF0FF" stroke="#C7D2FE" stroke-width="1.3"/>
     <rect x="52" y="50" width="4" height="15" rx="2" fill="#4F46E5"/>
-    <text x="66" y="62" class="zone">① Engine &amp; HBM</text>
-    <text x="66" y="80" class="zone-sub">GPU host · block keys originate here</text>
+    <text x="66" y="62" class="zone">① 引擎与 HBM</text>
+    <text x="66" y="80" class="zone-sub">GPU 主机 · 块键由引擎产生</text>
 
     <rect x="370" y="36" width="680" height="500" rx="13" fill="#ECFDF5" stroke="#A7F3D0" stroke-width="1.3"/>
     <rect x="386" y="50" width="4" height="15" rx="2" fill="#0D9488"/>
-    <text x="400" y="62" class="zone">② Co-located storage node</text>
-    <text x="400" y="80" class="zone-sub">One node per engine replica · local DRAM + NVMe</text>
+    <text x="400" y="62" class="zone">② 同机存储节点</text>
+    <text x="400" y="80" class="zone-sub">每个引擎副本一个节点 · 本机 DRAM 与 NVMe</text>
 
     <rect x="1074" y="36" width="450" height="500" rx="13" fill="#F6F2FE" stroke="#DDD0F5" stroke-width="1.3"/>
     <rect x="1090" y="50" width="4" height="15" rx="2" fill="#7C3AED"/>
-    <text x="1104" y="62" class="zone">③ Remote block service</text>
-    <text x="1104" y="80" class="zone-sub">Independent storage hosts · one copy per key</text>
+    <text x="1104" y="62" class="zone">③ 远端块服务</text>
+    <text x="1104" y="80" class="zone-sub">独立存储主机 · 同键全集群一份</text>
 
     <rect x="36" y="560" width="1488" height="260" rx="13" fill="#F0F5FE" stroke="#BFDBFE" stroke-width="1.3"/>
     <rect x="52" y="574" width="4" height="15" rx="2" fill="#2563EB"/>
-    <text x="66" y="586" class="zone">④ Decision &amp; global index</text>
-    <text x="66" y="604" class="zone-sub">Single authority · placement, lookup and recovery</text>
+    <text x="66" y="586" class="zone">④ 决策与全局索引</text>
+    <text x="66" y="604" class="zone-sub">唯一权威账本 · 放置、查询与恢复</text>
   </g>
 
   <g id="engine">
     <rect x="60" y="112" width="262" height="112" rx="10" fill="#FFFFFF" stroke="#4F46E5" stroke-width="1.2"/>
-    <text x="78" y="140" class="card-title">Engine KV Cache</text>
-    <text x="78" y="166" class="card-body">Partial blocks stay in HBM</text>
-    <text x="78" y="188" class="card-body">Full blocks are eligible to exit</text>
-    <text x="78" y="210" class="card-body">Retrieved blocks assemble in HBM</text>
+    <text x="78" y="140" class="card-title">引擎 KV 缓存</text>
+    <text x="78" y="166" class="card-body">半块留在 HBM</text>
+    <text x="78" y="188" class="card-body">满块可逐出</text>
+    <text x="78" y="210" class="card-body">读回块在 HBM 装配</text>
 
     <rect x="60" y="258" width="262" height="108" rx="10" fill="#FFFFFF" stroke="#4F46E5" stroke-width="1.2"/>
-    <text x="78" y="286" class="card-title">Engine block hash chain</text>
-    <text x="78" y="312" class="card-body">hash(parent, token ids, extra keys)</text>
-    <text x="78" y="334" class="card-body">Storage never recomputes block keys</text>
-    <text x="78" y="354" class="card-body">Child keys do not require parents</text>
+    <text x="78" y="286" class="card-title">引擎块哈希链</text>
+    <text x="78" y="312" class="card-body">哈希（父块、token ids、附加键）</text>
+    <text x="78" y="334" class="card-body">存储不自算块键</text>
+    <text x="78" y="354" class="card-body">父块不在场也能计算子块键</text>
   </g>
 
   <g id="storage-node">
     <rect x="394" y="112" width="184" height="112" rx="10" fill="#FFFFFF" stroke="#0D9488" stroke-width="1.2"/>
-    <text x="412" y="140" class="card-title">gRPC BlockStore</text>
+    <text x="412" y="140" class="card-title">gRPC 块存储服务</text>
     <text x="412" y="166" class="card-body">PutBlock / GetBlock</text>
-    <text x="412" y="188" class="card-body">Length + KV-spec checks</text>
-    <text x="412" y="210" class="card-body">Bytes, fd or registered memory</text>
+    <text x="412" y="188" class="card-body">校验字节长度与 KV 口径</text>
+    <text x="412" y="210" class="card-body">字节 / fd / 注册内存</text>
 
     <rect x="618" y="112" width="184" height="112" rx="10" fill="#FFFFFF" stroke="#0D9488" stroke-width="1.2"/>
-    <text x="636" y="140" class="card-title">Node DRAM</text>
-    <text x="636" y="166" class="card-body">Sequential write buffer</text>
-    <text x="636" y="188" class="card-body">LRU read cache</text>
-    <text x="636" y="210" class="card-body">RDMA registered memory</text>
+    <text x="636" y="140" class="card-title">节点 DRAM</text>
+    <text x="636" y="166" class="card-body">顺序写缓冲</text>
+    <text x="636" y="188" class="card-body">LRU 读缓存</text>
+    <text x="636" y="210" class="card-body">RDMA 注册内存</text>
 
     <rect x="842" y="112" width="184" height="112" rx="10" fill="#FFFFFF" stroke="#0D9488" stroke-width="1.2"/>
-    <text x="860" y="140" class="card-title">NVMe segment file</text>
-    <text x="860" y="166" class="card-body">Fixed-size segments + bitmap</text>
-    <text x="860" y="188" class="card-body">Header: key, seq, CRC</text>
-    <text x="860" y="210" class="card-body">Offsets recorded in the index</text>
+    <text x="860" y="140" class="card-title">NVMe 段文件</text>
+    <text x="860" y="166" class="card-body">定长段与位图</text>
+    <text x="860" y="188" class="card-body">段头：键、序号、CRC</text>
+    <text x="860" y="210" class="card-body">偏移登记到索引</text>
 
     <rect x="394" y="258" width="280" height="108" rx="10" fill="#FFFFFF" stroke="#0D9488" stroke-width="1.2"/>
-    <text x="412" y="286" class="card-title">Eviction &amp; pin</text>
-    <text x="412" y="312" class="card-body">NVMe watermark triggers LRU</text>
-    <text x="412" y="334" class="card-body">Pin quota + TTL protect sessions</text>
-    <text x="412" y="354" class="card-body">Reclaimed segment IDs are reused</text>
+    <text x="412" y="286" class="card-title">驱逐与 pin</text>
+    <text x="412" y="312" class="card-body">NVMe 水位触发 LRU 驱逐</text>
+    <text x="412" y="334" class="card-body">pin 配额与 TTL 保护会话</text>
+    <text x="412" y="354" class="card-body">回收的段号直接重用</text>
 
     <rect x="724" y="258" width="302" height="108" rx="10" fill="#FFFFFF" stroke="#0D9488" stroke-width="1.2"/>
-    <text x="742" y="286" class="card-title">Event stream &amp; manifest</text>
-    <text x="742" y="312" class="card-body">register / demote / evict / offline</text>
-    <text x="742" y="334" class="card-body">Monotonic seq + resumable stream</text>
-    <text x="742" y="354" class="card-body">Bitmap + high-water seq heartbeat</text>
+    <text x="742" y="286" class="card-title">事件流与清单</text>
+    <text x="742" y="312" class="card-body">登记 / 下沉 / 驱逐 / 失联</text>
+    <text x="742" y="334" class="card-body">单调序号与断点续传</text>
+    <text x="742" y="354" class="card-body">位图与高水位序号心跳</text>
   </g>
 
   <g id="remote">
     <rect x="1098" y="112" width="190" height="112" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.2"/>
-    <text x="1116" y="140" class="card-title">Consistent hash ring</text>
-    <text x="1116" y="166" class="card-body">block hash → owner node</text>
-    <text x="1116" y="188" class="card-body">Same key, same remote node</text>
-    <text x="1116" y="210" class="card-body">No replica or failover retry</text>
+    <text x="1116" y="140" class="card-title">一致性哈希环</text>
+    <text x="1116" y="166" class="card-body">块哈希 → 所属节点</text>
+    <text x="1116" y="188" class="card-body">同键收敛到同一节点</text>
+    <text x="1116" y="210" class="card-body">无副本，失败不换节点重试</text>
 
     <rect x="1310" y="112" width="190" height="112" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.2"/>
-    <text x="1328" y="140" class="card-title">Remote NVMe nodes</text>
-    <text x="1328" y="166" class="card-body">Idempotent write by key</text>
-    <text x="1328" y="188" class="card-body">Capacity independent of HBM</text>
-    <text x="1328" y="210" class="card-body">Shared prefixes remain remote</text>
+    <text x="1328" y="140" class="card-title">远端 NVMe 节点</text>
+    <text x="1328" y="166" class="card-body">同键幂等写入</text>
+    <text x="1328" y="188" class="card-body">容量与本机解耦</text>
+    <text x="1328" y="210" class="card-body">公共前缀集中存远端</text>
   </g>
 
   <g id="decision">
     <rect x="394" y="620" width="210" height="96" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.2"/>
-    <text x="412" y="648" class="card-title">Placement decision</text>
-    <text x="412" y="674" class="card-body">Local / remote / discard</text>
-    <text x="412" y="696" class="card-body">Retrieval cost vs recompute</text>
+    <text x="412" y="648" class="card-title">保留决策</text>
+    <text x="412" y="674" class="card-body">落本机 / 落远端 / 丢弃</text>
+    <text x="412" y="696" class="card-body">比较取回与重算代价</text>
 
     <rect x="664" y="620" width="300" height="96" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.2"/>
-    <text x="682" y="648" class="card-title">Global block index</text>
-    <text x="682" y="674" class="card-body">hash → layer, node, offset, length</text>
-    <text x="682" y="696" class="card-body">Skip suspect or dead nodes</text>
+    <text x="682" y="648" class="card-title">全局块索引</text>
+    <text x="682" y="674" class="card-body">哈希 → 层、节点、偏移、长度</text>
+    <text x="682" y="696" class="card-body">跳过疑似与判死节点</text>
 
     <rect x="1004" y="620" width="200" height="96" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.2"/>
-    <text x="1022" y="648" class="card-title">Form index</text>
-    <text x="1022" y="674" class="card-body">KV spec + blockability</text>
-    <text x="1022" y="696" class="card-body">Rebuilt from configuration</text>
+    <text x="1022" y="648" class="card-title">形态索引</text>
+    <text x="1022" y="674" class="card-body">KV 口径与分块能力</text>
+    <text x="1022" y="696" class="card-body">重启从配置重建</text>
 
     <rect x="394" y="738" width="1106" height="64" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.2"/>
-    <text x="412" y="764" class="card-title">Index recovery</text>
-    <text x="412" y="788" class="card-body">Restore pin first → rebuild all node manifests → lookups return misses until complete → affected prefixes recompute; save continues</text>
+    <text x="412" y="764" class="card-title">索引重建</text>
+    <text x="412" y="788" class="card-body">进程重启：先恢复 pin → 重建全部节点清单 → 完成前查询返回未命中 → 受影响前缀重算；写入不受影响</text>
   </g>
 
   <g id="data-paths">
     <path class="main indigo" d="M322 168 H394"/>
-    <text x="358" y="156" class="label" text-anchor="middle">save</text>
+    <text x="358" y="156" class="label" text-anchor="middle">写入</text>
 
     <path class="main teal" d="M578 168 H618" marker-start="url(#arrow-teal)"/>
-    <text x="598" y="156" class="label" text-anchor="middle">bytes</text>
+    <text x="598" y="156" class="label" text-anchor="middle">字节</text>
 
     <path class="main teal" d="M802 168 H842"/>
-    <text x="822" y="156" class="label" text-anchor="middle">fsync</text>
+    <text x="822" y="156" class="label" text-anchor="middle">写盘</text>
 
     <path class="structure teal" d="M842 196 H802" marker-end="url(#arrow-teal)"/>
-    <text x="822" y="216" class="label" text-anchor="middle">cache fill</text>
+    <text x="822" y="242" class="label" text-anchor="middle">回填缓存</text>
 
-    <path class="main teal" d="M394 200 H352 V430 H192 V224"/>
-    <text x="272" y="420" class="label" text-anchor="middle">local readback → HBM</text>
+    <path class="main teal" d="M394 210 H322"/>
+    <text x="358" y="202" class="label" text-anchor="middle">读回 HBM</text>
 
     <path class="main purple" d="M1026 168 H1098"/>
-    <text x="1062" y="156" class="label" text-anchor="middle">demote</text>
+    <text x="1062" y="156" class="label" text-anchor="middle">下沉</text>
 
     <path class="structure purple" d="M1288 168 H1310"/>
-    <text x="1299" y="156" class="label" text-anchor="middle">key</text>
+    <text x="1299" y="156" class="label" text-anchor="middle">键</text>
 
-    <path class="main purple" d="M1405 112 V100 H560 V112"/>
-    <text x="1170" y="92" class="label" text-anchor="middle">remote readback</text>
+    <path class="main purple" d="M1405 112 V106 H560 V112"/>
+    <text x="1340" y="98" class="label" text-anchor="middle">远端读回</text>
   </g>
 
   <g id="control-paths">
-    <path class="control" d="M322 312 H352 V92 H486 V112"/>
-    <text x="419" y="84" class="label" text-anchor="middle">block key</text>
+    <path class="control" d="M322 312 H352 V106 H486 V112"/>
+    <text x="419" y="98" class="label" text-anchor="middle">块键</text>
 
     <path class="structure teal" d="M934 224 V258" marker-end="url(#arrow-teal)"/>
-    <text x="944" y="246" class="label">watermark</text>
+    <text x="944" y="246" class="label">水位上报</text>
 
     <path class="control" d="M500 224 V242 H700 V620"/>
-    <text x="710" y="552" class="label">lookup</text>
+    <text x="692" y="552" class="label" text-anchor="end">查询</text>
 
     <path class="control" d="M840 366 V620"/>
-    <text x="828" y="552" class="label" text-anchor="end">events / heartbeat</text>
+    <text x="828" y="552" class="label" text-anchor="end">事件 / 心跳</text>
 
     <path class="control" d="M900 620 V366"/>
-    <text x="912" y="552" class="label">manifest request</text>
+    <text x="912" y="552" class="label">清单重报</text>
 
     <path class="control" d="M664 668 H604"/>
-    <text x="634" y="656" class="label" text-anchor="middle">cost</text>
+    <text x="634" y="656" class="label" text-anchor="middle">代价</text>
 
     <path class="control" d="M509 620 V366"/>
-    <text x="519" y="552" class="label">retain / demote / drop</text>
+    <text x="519" y="552" class="label">保留 / 下沉 / 丢弃</text>
 
     <path class="control" d="M1004 692 H964"/>
-    <text x="984" y="680" class="label" text-anchor="middle">KV spec</text>
-
-    <path class="control" d="M814 716 V738"/>
-    <text x="824" y="732" class="label">restart</text>
+    <text x="984" y="680" class="label" text-anchor="middle">口径</text>
 
     <path class="control" d="M394 770 H48 V200 H60"/>
-    <text x="206" y="758" class="label" text-anchor="middle">recompute</text>
+    <text x="206" y="758" class="label" text-anchor="middle">重算</text>
   </g>
 </svg>
