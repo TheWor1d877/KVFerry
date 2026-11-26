@@ -1,0 +1,18 @@
+# 存储节点镜像多阶段构建；从仓库根执行：docker build -f deploy/Dockerfile.storage .
+# 基础镜像用官方短名，拉取加速由 docker daemon 的 registry-mirrors 处理；
+# Go module 代理经 ARG GOPROXY 注入，默认公共代理。
+ARG GOPROXY=https://goproxy.cn,direct
+
+FROM golang:1.22-alpine AS build
+ARG GOPROXY
+ENV GOPROXY=${GOPROXY}
+WORKDIR /src
+COPY go.work go.work
+COPY storage/ storage/
+RUN cd storage && go build -trimpath -ldflags "-s -w" -o /out/kvferry-storage ./cmd/kvferry-storage
+
+FROM alpine:3.20
+RUN addgroup -S kvferry && adduser -S -u 10001 -G kvferry kvferry
+COPY --from=build /out/kvferry-storage /usr/local/bin/kvferry-storage
+USER kvferry
+ENTRYPOINT ["/usr/local/bin/kvferry-storage"]

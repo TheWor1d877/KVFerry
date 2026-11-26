@@ -3,6 +3,8 @@ package server
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -19,6 +21,7 @@ import (
 	"github.com/TheWor1d877/KVFerry/storage/api"
 	"github.com/TheWor1d877/KVFerry/storage/internal/cache"
 	"github.com/TheWor1d877/KVFerry/storage/internal/pin"
+	"github.com/TheWor1d877/KVFerry/storage/internal/remote"
 	"github.com/TheWor1d877/KVFerry/storage/internal/segment"
 	"github.com/TheWor1d877/KVFerry/storage/internal/spec"
 	"github.com/TheWor1d877/KVFerry/storage/internal/telemetry"
@@ -430,5 +433,164 @@ func TestPinQuotaExceededKeepsPutSuccess(t *testing.T) {
 	}
 	if got := e.Logs.byMsg("pin add failed"); len(got) != 1 {
 		t.Errorf("pin add failed logs = %d, want 1", len(got))
+	}
+}
+
+// ---------- 远端块服务接入（D50、D51） ----------
+
+// fakePeer 是远端节点传输桩（D50）：PutBlock 同键覆盖进内存表，GetBlock 读回，计数调用次数。
+type fakePeer struct {
+	mu       sync.Mutex
+	putErr   error
+	getErr   error
+	data     map[string][]byte
+	putCalls int
+	getCalls int
+}
+
+func (f *fakePeer) PutBlock(ctx context.Context, in *api.PutBlockRequest, opts ...grpc.CallOption) (*api.PutBlockResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.putCalls++
+	if f.putErr != nil {
+		return nil, f.putErr
+	}
+	if f.data == nil {
+		f.data = make(map[string][]byte)
+	}
+	_, exists := f.data[in.GetBlockHash()]
+	f.data[in.GetBlockHash()] = in.GetBlockData()
+	return &api.PutBlockResponse{IsNewWrite: !exists}, nil
+}
+
+func (f *fakePeer) GetBlock(ctx context.Context, in *api.GetBlockRequest, opts ...grpc.CallOption) (*api.GetBlockResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.getCalls++
+	if f.getErr != nil {
+		return nil, f.getErr
+	}
+	if d, ok := f.data[in.GetBlockHash()]; ok {
+		return &api.GetBlockResponse{BlockData: d}, nil
+	}
+	return nil, status.Error(codes.NotFound, "block not found")
+}
+
+// startServerWithRemote 起 Deps.Remote 注入的服务端（D50）。
+func startServerWithRemote(t *testing.T, nodeSpec spec.KVCacheSpec, rc *remote.Client, ready bool, cacheBytes int64) *env {
+	t.Helper()
+	dir := t.TempDir()
+	events := &eventCapture{}
+	logs := &logCapture{}
+	srvLog := telemetry.NewWithHook(logs.record)
+	store, err := segment.Open(dir, "node-1", nodeSpec, 256*4, segment.Options{Log: srvLog, Emit: events.record})
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	lis := bufconn.Listen(1 << 20)
+	gsrv := grpc.NewServer(grpc.MaxRecvMsgSize(serverRecvSize(1 << 20)))
+	api.RegisterBlockStoreServer(gsrv, New(Deps{
+		NodeID:          "node-1",
+		Store:           store,
+		Cache:           cache.New(cacheBytes),
+		NodeSpec:        nodeSpec,
+		MaxMessageBytes: 1 << 20,
+		Ready:           func() bool { return ready },
+		Emit:            events.record,
+		Remote:          rc,
+		Log:             srvLog,
+	}))
+	go func() { _ = gsrv.Serve(lis) }()
+	conn, err := grpc.NewClient("passthrough:///bufnet",
+		grpc.WithContextDialer(func(ctx context.Context, s string) (net.Conn, error) { return lis.DialContext(ctx) }),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	t.Cleanup(func() {
+		conn.Close()
+		gsrv.Stop()
+		store.Close()
+	})
+	return &env{
+		Client:  api.NewBlockStoreClient(conn),
+		DataDir: dir,
+		Store:   store,
+		Events:  events,
+		Logs:    logs,
+		stop: func() {
+			conn.Close()
+			gsrv.Stop()
+		},
+	}
+}
+
+// TestGetBlockRemoteHit 覆盖本机未命中按环取远端命中（D50）：远端读回字节进响应并进读缓存。
+func TestGetBlockRemoteHit(t *testing.T) {
+	nodeSpec := baseSpec()
+	peer := &fakePeer{data: map[string][]byte{"hash-remote": bytes.Repeat([]byte{0xCD}, 64)}}
+	rc := remote.New(remote.Options{
+		NodeID:   "node-1",
+		Nodes:    []string{"remote-1"},
+		NodeSpec: nodeSpec,
+		Dial: func(addr string) (api.BlockStoreClient, func() error, error) {
+			if addr != "remote-1" {
+				return nil, nil, fmt.Errorf("unknown remote node %s", addr)
+			}
+			return peer, func() error { return nil }, nil
+		},
+	})
+	defer func() { _ = rc.Close() }()
+	e := startServerWithRemote(t, nodeSpec, rc, true, 1<<20)
+	resp, err := e.Client.GetBlock(context.Background(), getReq("hash-remote", nodeSpec))
+	if err != nil {
+		t.Fatalf("remote hit: %v", err)
+	}
+	if !bytes.Equal(resp.BlockData, peer.data["hash-remote"]) {
+		t.Error("remote hit bytes differ")
+	}
+	hits := e.Logs.byMsg("getblock returned")
+	if len(hits) != 1 || hits[0].f.Result != "hit_remote" || hits[0].f.Layer != "remote" {
+		t.Errorf("remote hit log = %+v, want one hit_remote entry", hits)
+	}
+}
+
+// TestGetBlockRemoteFailureReturnsNotFound 覆盖远端不可达与读失败按未命中返回、
+// 不重试其他节点（D51）。
+func TestGetBlockRemoteFailureReturnsNotFound(t *testing.T) {
+	nodeSpec := baseSpec()
+	peer := &fakePeer{getErr: errors.New("peer read failed")}
+	rc := remote.New(remote.Options{
+		NodeID:   "node-1",
+		Nodes:    []string{"remote-1"},
+		NodeSpec: nodeSpec,
+		Dial: func(addr string) (api.BlockStoreClient, func() error, error) {
+			return peer, func() error { return nil }, nil
+		},
+	})
+	defer func() { _ = rc.Close() }()
+	e := startServerWithRemote(t, nodeSpec, rc, true, 0)
+	_, err := e.Client.GetBlock(context.Background(), getReq("hash-x", nodeSpec))
+	if status.Code(err) != codes.NotFound {
+		t.Errorf("remote read failure = %v, want NotFound", err)
+	}
+	if peer.getCalls != 1 {
+		t.Errorf("remote get calls = %d, want 1 (no retry)", peer.getCalls)
+	}
+
+	dead := remote.New(remote.Options{
+		NodeID:   "node-1",
+		Nodes:    []string{"remote-dead"},
+		NodeSpec: nodeSpec,
+		Dial: func(addr string) (api.BlockStoreClient, func() error, error) {
+			return nil, nil, errors.New("dial refused")
+		},
+	})
+	defer func() { _ = dead.Close() }()
+	e2 := startServerWithRemote(t, nodeSpec, dead, true, 0)
+	_, err = e2.Client.GetBlock(context.Background(), getReq("hash-y", nodeSpec))
+	if status.Code(err) != codes.NotFound {
+		t.Errorf("unreachable remote = %v, want NotFound", err)
 	}
 }

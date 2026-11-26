@@ -1,0 +1,19 @@
+# 决策服务镜像多阶段构建；从仓库根执行：docker build -f deploy/Dockerfile.decision .
+# decision 模块 import storage/api，构建上下文须同时含 storage/ 与 decision/。
+# 基础镜像用官方短名，Go module 代理经 ARG GOPROXY 注入，默认公共代理。
+ARG GOPROXY=https://goproxy.cn,direct
+
+FROM golang:1.22-alpine AS build
+ARG GOPROXY
+ENV GOPROXY=${GOPROXY}
+WORKDIR /src
+COPY go.work go.work
+COPY storage/ storage/
+COPY decision/ decision/
+RUN cd decision && go build -trimpath -ldflags "-s -w" -o /out/kvferry-decision ./cmd/kvferry-decision
+
+FROM alpine:3.20
+RUN addgroup -S kvferry && adduser -S -u 10001 -G kvferry kvferry
+COPY --from=build /out/kvferry-decision /usr/local/bin/kvferry-decision
+USER kvferry
+ENTRYPOINT ["/usr/local/bin/kvferry-decision"]

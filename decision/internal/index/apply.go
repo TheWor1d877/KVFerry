@@ -42,8 +42,8 @@ func NewApplier(ix *Index, logs ...*telemetry.Logger) *Applier {
 }
 
 // Apply 应用一条节点事件（D47）：返回该事件是否按新 seq 处理，重复 seq 返回 false。
-// 应用规则：register 插入登记，demote 更新层位，evict 删除登记，offline 与 oversized
-// 无登记变化（D46）；块哈希为空时只推进确认位不动映射。
+// 应用规则：register 插入登记，demote 更新层位，evict 只注销与事件 layer 同层的登记，
+// offline 与 oversized 无登记变化（D46、D50）；块哈希为空时只推进确认位不动映射。
 func (a *Applier) Apply(ev *api.StorageEvent) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -77,7 +77,11 @@ func (a *Applier) Apply(ev *api.StorageEvent) bool {
 			a.ix.Insert(node, ev.GetBlockHash(), r)
 		}
 	case KindEvict:
-		a.ix.Delete(node, ev.GetBlockHash())
+		// evict 只注销与事件 layer 同层的登记（D47）：本机段回收的 evict(local)
+		// 不注销已下沉的远端登记（D50）；普通本机驱逐删 local 登记行为不变。
+		if r, ok := a.ix.Lookup(node, ev.GetBlockHash()); ok && r.Layer == ev.GetLayer() {
+			a.ix.Delete(node, ev.GetBlockHash())
+		}
 	case KindOffline, KindOversized:
 		// 失联由状态机摘调度池，超限拒收未产生块（D46、D51）。
 	}

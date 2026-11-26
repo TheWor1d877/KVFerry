@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/TheWor1d877/KVFerry/storage/internal/block"
 	"github.com/TheWor1d877/KVFerry/storage/internal/cache"
 	"github.com/TheWor1d877/KVFerry/storage/internal/pin"
+	"github.com/TheWor1d877/KVFerry/storage/internal/remote"
 	"github.com/TheWor1d877/KVFerry/storage/internal/segment"
 	"github.com/TheWor1d877/KVFerry/storage/internal/spec"
 	"github.com/TheWor1d877/KVFerry/storage/internal/telemetry"
@@ -31,7 +33,10 @@ type Deps struct {
 	// Pins 是 pin 表实例，请求带 pin 时块写入完成后把键写进清单并落盘（R34）；
 	// 取 nil 时 pin 请求被忽略，写入照常成功。
 	Pins *pin.Table
-	Log  *telemetry.Logger
+	// Remote 是远端块服务客户端（D50）：本机未命中时按环取远端，远端不可达或读失败
+	// 按未命中返回（D51）；取 nil 时行为与不启用远端块服务一致（D42）。
+	Remote *remote.Client
+	Log    *telemetry.Logger
 }
 
 // Server 实现 kvferry.storage.v1.BlockStore 两个方法（D40）。
@@ -200,6 +205,24 @@ func (s *Server) GetBlock(ctx context.Context, req *api.GetBlockRequest) (*api.G
 
 	data, seq, err := s.deps.Store.Get(hash)
 	if err != nil {
+		// 本机未命中且启用远端块服务时按环取远端（D50）：远端不可达或读失败按未命中返回，
+		// 不重试其他节点（D51）；CRC 失败与段损坏类数据错误不转远端（D46）。
+		if s.deps.Remote != nil && isLocalMiss(err) {
+			if rdata, ok := s.deps.Remote.GetRemote(ctx, hash); ok {
+				s.deps.Cache.Put(hash, rdata)
+				s.log.Info("getblock returned", telemetry.Fields{
+					TraceID:    traceID,
+					NodeID:     s.deps.NodeID,
+					BlockHash:  hash,
+					Bytes:      int64(len(rdata)),
+					Result:     "hit_remote",
+					Layer:      "remote",
+					DurationMs: time.Since(start).Milliseconds(),
+				})
+				return &api.GetBlockResponse{BlockData: rdata, FileDescriptor: 0, RegisteredMemory: 0}, nil
+			}
+			err = fmt.Errorf("%w: %s", segment.ErrNotFound, hash)
+		}
 		s.log.Warn("getblock failed", telemetry.Fields{
 			TraceID:    traceID,
 			NodeID:     s.deps.NodeID,
@@ -226,4 +249,10 @@ func (s *Server) GetBlock(ctx context.Context, req *api.GetBlockRequest) (*api.G
 	})
 
 	return &api.GetBlockResponse{BlockData: data, FileDescriptor: 0, RegisteredMemory: 0}, nil
+}
+
+// isLocalMiss 判定本机读失败是否为未命中（D50）：映射无键与段被回收复用两类转远端，
+// CRC 失败与段损坏等数据错误不转（D46、D51）。
+func isLocalMiss(err error) bool {
+	return errors.Is(err, segment.ErrNotFound) || errors.Is(err, segment.ErrHashMismatch)
 }

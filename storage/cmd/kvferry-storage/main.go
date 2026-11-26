@@ -13,15 +13,22 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/TheWor1d877/KVFerry/storage/api"
+	"github.com/TheWor1d877/KVFerry/storage/internal/audit"
 	"github.com/TheWor1d877/KVFerry/storage/internal/cache"
 	"github.com/TheWor1d877/KVFerry/storage/internal/config"
 	"github.com/TheWor1d877/KVFerry/storage/internal/event"
 	"github.com/TheWor1d877/KVFerry/storage/internal/manifest"
+	"github.com/TheWor1d877/KVFerry/storage/internal/pin"
+	"github.com/TheWor1d877/KVFerry/storage/internal/remote"
 	"github.com/TheWor1d877/KVFerry/storage/internal/segment"
 	"github.com/TheWor1d877/KVFerry/storage/internal/server"
 	"github.com/TheWor1d877/KVFerry/storage/internal/spec"
+	"github.com/TheWor1d877/KVFerry/storage/internal/startup"
 	"github.com/TheWor1d877/KVFerry/storage/internal/telemetry"
 )
+
+// reasonSinkDemoted 是下沉成功后本机段回收的原因取值（D50）。
+const reasonSinkDemoted = "sink_demoted"
 
 func main() {
 	os.Exit(run(os.Args[1:]))
@@ -66,9 +73,41 @@ func run(args []string) int {
 		return 1
 	}
 
-	store, err := segment.Open(cfg.DataDir, cfg.NodeID, nodeSpec, cfg.CapacityBytes, segment.Options{
-		Emit: emit,
-		Log:  log,
+	// pin 表构造与清单恢复（R34）：pin 清单恢复先于段头扫描，pin 的段在重建完成后
+	// 直接进入不可驱逐集合；配额回收解除标记后释放对应段（R34）。
+	var store *segment.Store
+	pins := pin.New(pin.Options{
+		DataDir:    cfg.DataDir,
+		BlockBytes: nodeSpec.BlockBytes,
+		QuotaBytes: cfg.PinQuotaBytes,
+		DefaultTTL: time.Duration(cfg.PinTTLS) * time.Second,
+		Log:        log,
+		OnReclaim: func(blockHash string) {
+			store.DropBlock(blockHash, segment.ReasonPinQuota)
+		},
+	})
+	if err := pins.Load(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+
+	// 决策连接懒建立，决策不可达不阻塞启动口径编排与节点服务（D51）。
+	decisionConn, err := grpc.NewClient(cfg.DecisionEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, fmt.Errorf("dial decision endpoint %s: %w", cfg.DecisionEndpoint, err))
+		return 1
+	}
+	defer decisionConn.Close()
+	reporterClient := api.NewStorageReporterClient(decisionConn)
+	reporter := manifest.NewReporter(cfg.NodeID, cfg.ManifestShardBlocks, reporterClient)
+
+	// 启动口径校验与清空重建编排（D55）：口径不一致时清空数据大文件按新口径重建段区与位图；
+	// 校验结论经 startup.Open 内的四处打点记录，重建后的启动清单上报即全量重报（D55）。
+	store, _, err = startup.Open(cfg.DataDir, cfg.NodeID, nodeSpec, cfg.CapacityBytes, startup.Options{
+		Emit:         emit,
+		Log:          log,
+		Pins:         pins,
+		WatermarkPct: cfg.NVMEWatermarkPct,
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -76,11 +115,23 @@ func run(args []string) int {
 	}
 	defer store.Close()
 
-	log.Info("startup spec verified", telemetry.Fields{
-		NodeID: cfg.NodeID,
-		Result: "spec_match",
-		Reason: fmt.Sprintf("file header and engine spec consistent, segments=%d segment_size=%d", store.TotalSegments(), store.SegmentSize()),
-	})
+	// 清单条目与容量水位从段头与段总数取，供清单上报与心跳共用（D48）。
+	scanEntries := func() ([]manifest.Entry, float64, error) {
+		occupied, hashes, err := manifest.ScanSegmentHeads(cfg.DataDir, store.SegmentSize(), store.TotalSegments())
+		if err != nil {
+			return nil, 0, err
+		}
+		return manifest.BuildEntries(hashes, store.SegmentSize(), nodeSpec.BlockBytes),
+			float64(len(occupied)) / float64(store.TotalSegments()), nil
+	}
+	rereport := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = startup.RereportRebuilt(ctx, cfg.DataDir, store, nodeSpec, cfg.NodeID, startup.RereporterFunc(reporter.Report), log)
+	}
+
+	// 启动即逐片上报一次全量清单；口径重建后的这次上报就是重建清单（D55）。
+	go rereport()
 
 	// 段清单快照按心跳同频周期落盘（D49）；数据源扫段头取占用、从位图取高水位。
 	snapshotSrc := manifest.SourceFunc(func() ([]int64, int64, error) {
@@ -100,43 +151,59 @@ func run(args []string) int {
 	defer cancelWatermark()
 	go buf.Run(watermarkCtx, time.Duration(cfg.HeartbeatIntervalS)*time.Second)
 
-	// 决策连接懒建立，决策不可达不阻塞节点服务（D51）。
-	decisionConn, err := grpc.NewClient(cfg.DecisionEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		fmt.Fprintln(os.Stderr, fmt.Errorf("dial decision endpoint %s: %w", cfg.DecisionEndpoint, err))
-		return 1
-	}
-	defer decisionConn.Close()
-	reporterClient := api.NewStorageReporterClient(decisionConn)
-	reporter := manifest.NewReporter(cfg.NodeID, cfg.ManifestShardBlocks, reporterClient)
+	// 周期对账与数据抽读（D54）：audit_max_mbps 兆比特每秒换算字节每秒限速预算。
+	aud := audit.New(audit.Options{
+		NodeID:       cfg.NodeID,
+		Store:        store,
+		Emit:         emit,
+		Log:          log,
+		IntervalS:    cfg.AuditIntervalS,
+		SamplePct:    cfg.AuditSamplePct,
+		MaxBytesPerS: int64(cfg.AuditMaxMbps) * 1000 * 1000 / 8,
+	})
+	auditCtx, cancelAudit := context.WithCancel(context.Background())
+	defer cancelAudit()
+	go aud.Run(auditCtx)
 
-	// 清单条目与容量水位从段头与段总数取，供事件流与心跳共用（D48）。
-	scanEntries := func() ([]manifest.Entry, float64, error) {
-		occupied, hashes, err := manifest.ScanSegmentHeads(cfg.DataDir, store.SegmentSize(), store.TotalSegments())
-		if err != nil {
-			return nil, 0, err
-		}
-		return manifest.BuildEntries(hashes, store.SegmentSize(), nodeSpec.BlockBytes),
-			float64(len(occupied)) / float64(store.TotalSegments()), nil
+	// 远端块服务客户端（D50、D51）：remote_nodes 为空时不启用，行为与单机一致（D42）。
+	var remoteClient *remote.Client
+	if len(cfg.RemoteNodes) > 0 {
+		remoteClient = remote.New(remote.Options{
+			NodeID:   cfg.NodeID,
+			Nodes:    cfg.RemoteNodes,
+			NodeSpec: nodeSpec,
+			Emit:     emit,
+			LocalPut: func(blockHash string, data []byte) error {
+				_, _, err := store.Put(blockHash, data)
+				return err
+			},
+			Log: log,
+		})
+		defer remoteClient.Close()
 	}
-	reportAll := func(reason string) {
-		entries, _, err := scanEntries()
+
+	// 下沉触发来源（D50）：保留决策未实现前由 pin 变更触发——决策经心跳响应下发 pin，
+	// 节点把本机持有且被 pin 的块按环推远端，下沉成功后本机段按普通驱逐流程回收。
+	// 真实保留决策触发属决策服务实现，落地后替换本编排。
+	sinkOnPin := func(change *api.PinChange) {
+		if remoteClient == nil || !change.GetPinned() {
+			return
+		}
+		hash := change.GetBlockHash()
+		data, _, err := store.Get(hash)
 		if err != nil {
-			log.Warn("manifest scan failed", telemetry.Fields{NodeID: cfg.NodeID, Reason: err.Error(), Result: "scan_failed"})
 			return
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if err := reporter.Report(ctx, entries); err != nil {
-			log.Warn("manifest report failed, keep serving", telemetry.Fields{NodeID: cfg.NodeID, Reason: err.Error(), Result: "report_failed"})
+		outcome, err := remoteClient.Sink(ctx, hash, data)
+		if err != nil {
 			return
 		}
-		_ = reason
+		if outcome == remote.SinkRemote {
+			store.DropBlock(hash, reasonSinkDemoted)
+		}
 	}
-
-	go func() {
-		reportAll("startup")
-	}()
 
 	// 事件流客户端（D41、D47）：断线续传与重连补传，决策不可达时循环重试不阻塞服务（D51）。
 	stream := event.NewStream(cfg.NodeID, buf, reporterClient, log, event.StreamOptions{})
@@ -144,7 +211,8 @@ func run(args []string) int {
 	defer cancelStream()
 	go stream.Run(streamCtx)
 
-	// 心跳循环（D41、D48）：响应 pin 变更消费与全量重报触发，重报不动事件 seq（D47、D49）；
+	// 心跳循环（D41、D48）：响应 pin 变更写进 pin 表并落盘（R25、R34），
+	// 全量重报请求触发重报且重报不动事件 seq（D47、D49）；
 	// 事件流首次补传完成前跳过清单上报，保证重连后先补传事件再上报清单（D47）。
 	hb := server.NewHeartbeat(server.HeartbeatDeps{
 		NodeID:      cfg.NodeID,
@@ -161,9 +229,24 @@ func run(args []string) int {
 				BlockHash: change.GetBlockHash(),
 				Result:    "pin_received",
 			})
+			var err error
+			if change.GetPinned() {
+				err = pins.Add(change.GetBlockHash(), time.Duration(change.GetPinTtlS())*time.Second)
+			} else {
+				err = pins.Remove(change.GetBlockHash())
+			}
+			if err != nil {
+				log.Warn("pin change apply failed", telemetry.Fields{
+					NodeID:    cfg.NodeID,
+					BlockHash: change.GetBlockHash(),
+					Result:    "pin_apply_failed",
+					Reason:    err.Error(),
+				})
+			}
+			sinkOnPin(change)
 		}),
 		OnFullRereport: func() {
-			reportAll("full_rereport")
+			rereport()
 			buf.ClearResync()
 		},
 		Log: log,
@@ -186,6 +269,8 @@ func run(args []string) int {
 		MaxMessageBytes: int64(cfg.RPCMaxMessageMB) << 20,
 		Ready:           ready.Load,
 		Emit:            emit,
+		Pins:            pins,
+		Remote:          remoteClient,
 		Log:             log,
 	}))
 

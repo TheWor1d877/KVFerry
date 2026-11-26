@@ -17,7 +17,8 @@ func ev(kind, node string, seq int64, hash string, layer api.BlockLayer) *api.St
 }
 
 // TestFiveKindsUpdateIndex 覆盖五类事件更新索引映射（D47）：
-// register 插入，demote 更新层位，evict 删除，offline 与 oversized 无登记变化。
+// register 插入，demote 更新层位，evict 只注销与事件 layer 同层的登记，
+// offline 与 oversized 无登记变化。
 func TestFiveKindsUpdateIndex(t *testing.T) {
 	ix := New()
 	ap := NewApplier(ix)
@@ -46,14 +47,62 @@ func TestFiveKindsUpdateIndex(t *testing.T) {
 	if _, ok := ix.Lookup("node-1", "hash-b"); ok {
 		t.Fatal("oversized must not create registration")
 	}
-	if !ap.Apply(ev(KindEvict, "node-1", 5, "hash-a", api.BlockLayer_BLOCK_LAYER_LOCAL)) {
+	if !ap.Apply(ev(KindRegister, "node-1", 5, "hash-c", api.BlockLayer_BLOCK_LAYER_LOCAL)) {
+		t.Fatal("register must be applied")
+	}
+	if !ap.Apply(ev(KindEvict, "node-1", 6, "hash-c", api.BlockLayer_BLOCK_LAYER_LOCAL)) {
+		t.Fatal("evict must be applied")
+	}
+	if _, ok := ix.Lookup("node-1", "hash-c"); ok {
+		t.Fatal("hash-c must be removed after local evict")
+	}
+	// hash-a 登记已是远端，本机段回收的 evict(local) 不注销远端登记（D50）。
+	if !ap.Apply(ev(KindEvict, "node-1", 7, "hash-a", api.BlockLayer_BLOCK_LAYER_LOCAL)) {
+		t.Fatal("evict must be applied")
+	}
+	if _, ok := ix.Lookup("node-1", "hash-a"); !ok {
+		t.Fatal("remote registration must survive local evict")
+	}
+	if got := ap.Applied("node-1"); got != 7 {
+		t.Fatalf("applied = %d, want 7", got)
+	}
+}
+
+// TestEvictDifferentLayerKeepsRecord 覆盖 evict 只注销与事件 layer 同层的登记（D47、D50）：
+// demote(remote) 把登记层位转远端后，本机段回收的 evict(local) 保留远端登记，查询仍命中。
+func TestEvictDifferentLayerKeepsRecord(t *testing.T) {
+	ix := New()
+	ap := NewApplier(ix)
+	if !ap.Apply(ev(KindRegister, "node-1", 1, "hash-a", api.BlockLayer_BLOCK_LAYER_LOCAL)) {
+		t.Fatal("register must be applied")
+	}
+	if !ap.Apply(ev(KindDemote, "node-1", 2, "hash-a", api.BlockLayer_BLOCK_LAYER_REMOTE)) {
+		t.Fatal("demote must be applied")
+	}
+	if !ap.Apply(ev(KindEvict, "node-1", 3, "hash-a", api.BlockLayer_BLOCK_LAYER_LOCAL)) {
+		t.Fatal("local evict must be applied")
+	}
+	r, ok := ix.Lookup("node-1", "hash-a")
+	if !ok {
+		t.Fatal("remote registration must survive local segment evict")
+	}
+	if r.Layer != api.BlockLayer_BLOCK_LAYER_REMOTE {
+		t.Errorf("layer = %v, want remote", r.Layer)
+	}
+}
+
+// TestEvictSameLayerDeletesRecord 覆盖普通本机驱逐删 local 登记（D47，防回归）。
+func TestEvictSameLayerDeletesRecord(t *testing.T) {
+	ix := New()
+	ap := NewApplier(ix)
+	if !ap.Apply(ev(KindRegister, "node-1", 1, "hash-a", api.BlockLayer_BLOCK_LAYER_LOCAL)) {
+		t.Fatal("register must be applied")
+	}
+	if !ap.Apply(ev(KindEvict, "node-1", 2, "hash-a", api.BlockLayer_BLOCK_LAYER_LOCAL)) {
 		t.Fatal("evict must be applied")
 	}
 	if _, ok := ix.Lookup("node-1", "hash-a"); ok {
-		t.Fatal("hash-a must be removed after evict")
-	}
-	if got := ap.Applied("node-1"); got != 5 {
-		t.Fatalf("applied = %d, want 5", got)
+		t.Fatal("local registration must be deleted by local evict")
 	}
 }
 

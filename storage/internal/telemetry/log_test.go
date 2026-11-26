@@ -160,3 +160,61 @@ func TestShardIndexFieldCarriedAndOmitted(t *testing.T) {
 		t.Errorf("shard_index must be omitted when zero, got %s", c.lines[1])
 	}
 }
+func TestTargetAndNodesCountFields(t *testing.T) {
+	c, lg := newCapture()
+	lg.Info("block sink completed", Fields{
+		NodeID:     "node-1",
+		BlockHash:  "hash-a",
+		Target:     "remote-1",
+		DurationMs: 4,
+		Result:     "sunk",
+		Layer:      "remote",
+	})
+	if !strings.Contains(string(c.lines[0]), `"target":"remote-1"`) {
+		t.Errorf("json line should carry target, got %s", c.lines[0])
+	}
+	lg.Info("remote ring rebuilt", Fields{NodesCount: 3, Result: "rebuilt"})
+	if !strings.Contains(string(c.lines[1]), `"node_count":3`) {
+		t.Errorf("json line should carry node_count, got %s", c.lines[1])
+	}
+	lg.Info("block sink completed", Fields{NodeID: "node-1", Result: "sunk"})
+	if strings.Contains(string(c.lines[2]), "target") || strings.Contains(string(c.lines[2]), "node_count") {
+		t.Errorf("target and node_count must be omitted when zero, got %s", c.lines[2])
+	}
+}
+func TestSpecSegmentsShardsEntriesFields(t *testing.T) {
+	c, lg := newCapture()
+	lg.Info("startup spec verified", Fields{
+		NodeID:     "node-1",
+		Spec:       "block_bytes=64,precision=fp16,bytes_per_token=8,alignment_pad=0",
+		Segments:   1154,
+		DurationMs: 2,
+		Result:     "match",
+	})
+	line := string(c.lines[0])
+	for _, key := range []string{`"spec":"block_bytes=64`, `"segments":1154`, "duration_ms", "node_id"} {
+		if !strings.Contains(line, key) {
+			t.Errorf("json line %q should contain %q", line, key)
+		}
+	}
+	lg.Info("manifest rereport completed", Fields{
+		NodeID:     "node-1",
+		Shards:     3,
+		Entries:    120,
+		DurationMs: 8,
+		Result:     "manifest_rereported",
+	})
+	line = string(c.lines[1])
+	for _, key := range []string{`"shards":3`, `"entries":120`} {
+		if !strings.Contains(line, key) {
+			t.Errorf("json line %q should contain %q", line, key)
+		}
+	}
+	lg.Info("block evicted", Fields{NodeID: "node-1", Result: "evicted"})
+	line = string(c.lines[2])
+	for _, key := range []string{"spec", "segments", "shards", "entries"} {
+		if strings.Contains(line, `"`+key) {
+			t.Errorf("json line %q must omit %q when zero, got %s", line, key, line)
+		}
+	}
+}

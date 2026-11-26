@@ -1,0 +1,55 @@
+# 决策服务 Deployment：索引与决策同进程、全局单例，一副本运行（D53）。
+# 镜像名规范见 CLAUDE.md；版本标签以 git tag 为唯一权威来源，首个 tag 发布后逐字替换。
+# 决策进程重启后登记全部作废，开重建窗口等各节点逐片重报，窗口关闭前命中一律未命中
+# （D49、R32）；节点名单经 -nodes 注入，与各机 ConfigMap 的 node_id 一致。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kvferry-decision
+  namespace: kvferry
+  labels:
+    app: kvferry-decision
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kvferry-decision
+  template:
+    metadata:
+      labels:
+        app: kvferry-decision
+    spec:
+      containers:
+        - name: kvferry-decision
+          # 版本标签与仓库 git tag 逐字一致（CLAUDE.md 版本规范）。
+          image: ghcr.io/thewor1d877/kvferry/kvferry-decision:v0.1.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - "-listen"
+            - ":9200"
+            # 重建窗口登记节点集合（D49）：逐机替换为实际 node_id 名单。
+            - "-nodes"
+            - "node-1"
+          ports:
+            - containerPort: 9200
+              name: grpc
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kvferry-decision
+  namespace: kvferry
+spec:
+  selector:
+    app: kvferry-decision
+  ports:
+    - port: 9200
+      targetPort: 9200
+      name: grpc

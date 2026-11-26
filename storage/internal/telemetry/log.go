@@ -27,6 +27,18 @@ type Fields struct {
 	WatermarkPct int
 	Retry        int64
 	ShardIndex   int64
+	// Target 记远端目标节点（D50）。
+	Target string
+	// NodesCount 记环成员节点数（D50）。
+	NodesCount int
+	// Spec 记节点口径四项的紧凑描述（D44、D55）。
+	Spec string
+	// Segments 记段总数（D43、D55）。
+	Segments int64
+	// Shards 记清单分片总数（D48）。
+	Shards int64
+	// Entries 记清单条目数（D48、D55）。
+	Entries int64
 }
 
 // NewTraceID 从链路要素生成请求级 trace_id：要素含块哈希与时间戳，经短哈希得到，
@@ -113,6 +125,24 @@ func (l *Logger) attrs(f Fields) []slog.Attr {
 	}
 	if f.ShardIndex != 0 {
 		attrs = append(attrs, slog.Int64("shard_index", f.ShardIndex))
+	}
+	if f.Target != "" {
+		attrs = append(attrs, slog.String("target", f.Target))
+	}
+	if f.NodesCount != 0 {
+		attrs = append(attrs, slog.Int("node_count", f.NodesCount))
+	}
+	if f.Spec != "" {
+		attrs = append(attrs, slog.String("spec", f.Spec))
+	}
+	if f.Segments != 0 {
+		attrs = append(attrs, slog.Int64("segments", f.Segments))
+	}
+	if f.Shards != 0 {
+		attrs = append(attrs, slog.Int64("shards", f.Shards))
+	}
+	if f.Entries != 0 {
+		attrs = append(attrs, slog.Int64("entries", f.Entries))
 	}
 	return attrs
 }

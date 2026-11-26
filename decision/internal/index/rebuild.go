@@ -19,20 +19,25 @@ var (
 )
 
 // nodeShards 记录单节点的分片接收状态（D49）：各片可乱序到达，按片记录。
+// entries 累计该节点已收条目数；fromWindow 区分窗口初始集合成员与重报加入的节点。
 type nodeShards struct {
-	total  int64
-	shards map[int64]map[string]Record
+	total      int64
+	shards     map[int64]map[string]Record
+	entries    int64
+	fromWindow bool
 }
 
 // Rebuild 管理全量重报的逐片重建与重建窗口（D49、R32）。
+// window 前缀字段只累计窗口初始集合的接收量，供关窗打点记本次重建语境的值；
+// 重报加入的节点不计入窗口累计，其完成另打单节点重报完成打点。
 type Rebuild struct {
 	mu             sync.Mutex
 	ix             *Index
 	nodes          map[string]*nodeShards
 	open           bool
-	totalNodes     int
-	totalShards    int64
-	totalEntries   int64
+	windowNodes    int
+	windowShards   int64
+	windowEntries  int64
 	started        time.Time
 	onNodeComplete func(node string)
 	log            *telemetry.Logger
@@ -64,15 +69,15 @@ func StartRebuild(ix *Index, nodes []string, logs ...*telemetry.Logger) *Rebuild
 		log = logs[0]
 	}
 	rb := &Rebuild{
-		ix:         ix,
-		nodes:      make(map[string]*nodeShards, len(nodes)),
-		open:       true,
-		totalNodes: len(nodes),
-		started:    time.Now(),
-		log:        log,
+		ix:          ix,
+		nodes:       make(map[string]*nodeShards, len(nodes)),
+		open:        true,
+		windowNodes: len(nodes),
+		started:     time.Now(),
+		log:         log,
 	}
 	for _, node := range nodes {
-		rb.nodes[node] = &nodeShards{shards: make(map[int64]map[string]Record)}
+		rb.nodes[node] = &nodeShards{shards: make(map[int64]map[string]Record), fromWindow: true}
 	}
 	log.Info("rebuild started", telemetry.Fields{
 		NodeID: "decision",
@@ -103,8 +108,11 @@ func (rb *Rebuild) Shard(node string, shardIndex, shardTotal int64, records map[
 		return fmt.Errorf("%w: node %s want %d got %d", ErrShardTotal, node, ns.total, shardTotal)
 	}
 	ns.shards[shardIndex] = records
-	rb.totalShards++
-	rb.totalEntries += int64(len(records))
+	ns.entries += int64(len(records))
+	if ns.fromWindow {
+		rb.windowShards++
+		rb.windowEntries += int64(len(records))
+	}
 	rb.log.Info("manifest shard received", telemetry.Fields{
 		TraceID:    telemetry.NewTraceID(node, fmt.Sprintf("%d", shardIndex), time.Now().String()),
 		NodeID:     node,
@@ -127,13 +135,25 @@ func (rb *Rebuild) Shard(node string, shardIndex, shardTotal int64, records map[
 	if rb.onNodeComplete != nil {
 		rb.onNodeComplete(node)
 	}
-	if len(rb.nodes) == 0 {
+	// 重报加入的节点收齐后按本次重报语境打点，字段记该节点的分片数与条目数（D47、D49）。
+	if !ns.fromWindow {
+		rb.log.Info("node rereport completed", telemetry.Fields{
+			TraceID:    telemetry.NewTraceID(node, "rereport", time.Now().String()),
+			NodeID:     node,
+			Shards:     ns.total,
+			Entries:    ns.entries,
+			DurationMs: time.Since(rb.started).Milliseconds(),
+			Result:     "rereport_completed",
+		})
+	}
+	// 窗口初始集合全部收齐才关窗，打点记本次重建的节点数、分片数与条目数（D49、R32）。
+	if rb.open && len(rb.nodes) == 0 {
 		rb.open = false
 		rb.log.Info("rebuild completed", telemetry.Fields{
 			NodeID:     "decision",
-			Nodes:      int64(rb.totalNodes),
-			Shards:     rb.totalShards,
-			Entries:    rb.totalEntries,
+			Nodes:      int64(rb.windowNodes),
+			Shards:     rb.windowShards,
+			Entries:    rb.windowEntries,
 			DurationMs: time.Since(rb.started).Milliseconds(),
 			Result:     "window_closed",
 		})

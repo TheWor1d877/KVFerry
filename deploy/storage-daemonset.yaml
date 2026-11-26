@@ -1,0 +1,90 @@
+# 存储节点 DaemonSet：一机一个节点（D55）。
+# 镜像名规范见 CLAUDE.md；版本标签以 git tag 为唯一权威来源，首个 tag 发布后逐字替换。
+# 滚动升级保留 data_dir：升级后 Pod 重挂同一数据目录，启动口径校验决定是否清空重建——
+# 文件头记录口径与节点口径一致时段区与位图原样保留，不一致时清空重建并触发一次全量
+# 清单重报（D55），因此升级不丢已写块，引擎口径变更时按新口径重建。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kvferry-storage-config
+  namespace: kvferry
+data:
+  spec.json: |
+    {
+      "block_bytes": 1048576,
+      "kv_precision": "fp16",
+      "bytes_per_token": 16384,
+      "alignment_pad": 0
+    }
+  config.yaml: |
+    # 五项必填（D42）：node_id、decision_endpoint、data_dir、capacity_bytes、engine_endpoint。
+    # node_id 按部署机清单逐机替换；decision_endpoint 指向决策服务 Service。
+    node_id: node-1
+    decision_endpoint: kvferry-decision.kvferry.svc.cluster.local:9200
+    data_dir: /var/lib/kvferry
+    capacity_bytes: 107374182400
+    engine_endpoint: 127.0.0.1:0
+    listen: :9100
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kvferry-storage
+  namespace: kvferry
+  labels:
+    app: kvferry-storage
+spec:
+  selector:
+    matchLabels:
+      app: kvferry-storage
+  template:
+    metadata:
+      labels:
+        app: kvferry-storage
+    spec:
+      # 一机一个节点：DaemonSet 每节点一个 Pod（D55）；节点不与决策服务同机约束。
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: kvferry-storage
+          # 版本标签与仓库 git tag 逐字一致（CLAUDE.md 版本规范）。
+          image: ghcr.io/thewor1d877/kvferry/kvferry-storage:v0.1.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--config"
+            - "/etc/kvferry/config.yaml"
+            - "--spec-file"
+            - "/etc/kvferry/spec.json"
+          ports:
+            - containerPort: 9100
+              name: grpc
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kvferry
+              readOnly: true
+            - name: data-dir
+              # 数据大文件、段清单快照与 pin 清单都落此目录（D43、D49、R34）。
+              mountPath: /var/lib/kvferry
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+      volumes:
+        - name: config
+          configMap:
+            name: kvferry-storage-config
+        - name: data-dir
+          # hostPath 直挂本机 NVMe 挂载点下的数据目录：部署时把该目录建在 NVMe 分区的
+          # 挂载点内（如 /mnt/nvme0/kvferry），保证段文件写在本机 NVMe（D55）。
+          # 滚动升级重挂同一目录，口径一致时段区保留（D55，见清单头注）。
+          hostPath:
+            path: /var/lib/kvferry
+            type: DirectoryOrCreate
+      tolerations:
+        # 存储节点与引擎副本同机，容忍控制面污点以便全机覆盖。
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule

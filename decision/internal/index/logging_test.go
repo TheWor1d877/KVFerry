@@ -164,3 +164,51 @@ func TestQuerierWithoutLoggerUsesDefault(t *testing.T) {
 		t.Error("hit after window closed, want hit")
 	}
 }
+
+// TestEnqueueRereportLogging 覆盖重报完成与首次重建完成两种打点的区分（D47、D49）：
+// 重报完成打点记本次重报单节点的分片数与条目数，不再复用启动重建的累计值。
+func TestEnqueueRereportLogging(t *testing.T) {
+	capture := &logCapture{}
+	log := telemetry.NewWithHook(capture.hook)
+	ix := New()
+	rb := StartRebuild(ix, []string{"node-0"}, log)
+	if err := rb.Shard("node-0", 0, 1, map[string]Record{}); err != nil {
+		t.Fatalf("close window: %v", err)
+	}
+	rb.Enqueue("node-1")
+	if err := rb.Shard("node-1", 0, 2, map[string]Record{
+		"hash-a": {Layer: api.BlockLayer_BLOCK_LAYER_LOCAL, Offset: 71, Length: 64},
+	}); err != nil {
+		t.Fatalf("rereport shard 0: %v", err)
+	}
+	if err := rb.Shard("node-1", 1, 2, map[string]Record{
+		"hash-b": {Layer: api.BlockLayer_BLOCK_LAYER_LOCAL, Offset: 298, Length: 64},
+	}); err != nil {
+		t.Fatalf("rereport shard 1: %v", err)
+	}
+
+	completed := capture.byMsg("rebuild completed")
+	if len(completed) != 1 {
+		t.Fatalf("rebuild completed logs = %d, want 1 (rereport must not repeat it)", len(completed))
+	}
+	if completed[0].f.Nodes != 1 || completed[0].f.Shards != 1 || completed[0].f.Entries != 0 {
+		t.Errorf("completed fields = nodes %d shards %d entries %d, want window values 1/1/0",
+			completed[0].f.Nodes, completed[0].f.Shards, completed[0].f.Entries)
+	}
+
+	rereports := capture.byMsg("node rereport completed")
+	if len(rereports) != 1 {
+		t.Fatalf("node rereport completed logs = %d, want 1", len(rereports))
+	}
+	f := rereports[0].f
+	if f.NodeID != "node-1" || f.Shards != 2 || f.Entries != 2 {
+		t.Errorf("rereport fields = node_id %q shards %d entries %d, want node-1/2/2",
+			f.NodeID, f.Shards, f.Entries)
+	}
+	if f.Result != "rereport_completed" {
+		t.Errorf("rereport result = %q, want rereport_completed", f.Result)
+	}
+	if f.TraceID == "" {
+		t.Error("rereport completed log must carry non-empty trace_id")
+	}
+}
